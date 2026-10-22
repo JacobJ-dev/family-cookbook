@@ -10,7 +10,7 @@ An online family cookbook. One editor adds recipes, and invited family members b
 ## Getting started
 ```bash
 npm install
-cp .env.example .env.local   # then fill in your Supabase URL and anon key
+cp .env.example .env.local   # then fill in your Supabase URL and publishable key
 npm run dev                  # http://localhost:5173
 ```
 
