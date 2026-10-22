@@ -1,32 +1,23 @@
-# React + TypeScript + Vite
+# Family Cookbook
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+An online family cookbook. One editor adds recipes, and invited family members browse, rate, comment and mark favorites. Over time it shows which recipes the family loves most, for a printed cookbook.
 
-Currently, two official plugins are available:
+## Stack
+- React + TypeScript, built with Vite
+- React Router for pages
+- Supabase for the database (Postgres + Row Level Security), magic-link sign-in and photo storage
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+## Getting started
+```bash
+npm install
+cp .env.example .env.local   # then fill in your Supabase URL and anon key
+npm run dev                  # http://localhost:5173
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Scripts
+| command | what it does |
+|---|---|
+| `npm run dev` | start the dev server with hot reload |
+| `npm run build` | type-check (`tsc -b`) and build to `dist/` |
+| `npm run lint` | run oxlint |
+| `npm run preview` | serve the built `dist/` locally |
