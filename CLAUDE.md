@@ -20,6 +20,8 @@ An online family cookbook. The site owner's mother-in-law is the **only editor**
 - `npm run dev`: dev server at http://localhost:5173 (also `.claude/launch.json` → "dev")
 - `npm run build`: type-check (`tsc -b`) + production build. Must pass before committing.
 - `npm run lint`: oxlint. Must be clean.
+- `npx supabase db push`: apply new files in `supabase/migrations/` to the linked project (the developer has run `login` + `link`)
+- `npm run gen:types`: regenerate `src/lib/database.types.ts` after any schema change
 
 ## Planned structure
 ```
@@ -46,8 +48,8 @@ src/components/             StarRating, RecipeCard, ReviewList, ReviewForm, Reac
 
 ## Milestones
 0. ✅ Clean slate + git
-1. Supabase project setup (developer)
-2. Schema: Claude writes profiles + recipes + RLS; developer writes reviews + reactions
+1. ✅ Supabase project setup (developer)
+2. Schema: ✅ Claude wrote profiles + recipes + RLS; developer writes reviews + reactions (next)
 3. Auth (Claude): client, AuthProvider, LoginPage, route guard
 4. Recipe list + detail (developer)
 5. Editor form (Claude: form + photo upload; developer: ingredient/step list editing)
