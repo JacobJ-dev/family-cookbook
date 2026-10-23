@@ -6,6 +6,7 @@ An online family cookbook. The site owner's mother-in-law is the **only editor**
 - This is a **learning project**. The developer wants to fully understand every line, and we **take turns** writing code.
 - When Claude writes code: keep changes small, and explain what each part does and why.
 - When a step is marked as the developer's turn: **don't write it for them**. Give the goal, hints and relevant docs, then review their code and explain any issues.
+- The developer is new to SQL migrations (learned RLS `using` vs `with check` in milestone 2). Explain new concepts with concrete examples before asking them to write them.
 - Prefer plain, readable code over clever abstractions. Don't add libraries without discussing it first.
 - Commit at the end of each milestone, with conventional-commit messages (`feat:`, `fix:`, `chore:`).
 
@@ -37,7 +38,7 @@ src/components/             StarRating, RecipeCard, ReviewList, ReviewForm, Reac
 - `profiles`: id (= auth user id), display_name, role (`editor` | `family`)
 - `recipes`: title, description, story, category, servings, prep/cook minutes, `ingredients text[]`, `steps text[]`, photo_path, created_by, timestamps
 - `reviews`: recipe_id, user_id, rating 1–5, comment. Unique per (recipe_id, user_id), so updates use upsert.
-- `reactions`: user_id, recipe_id, kind (`favorite` | `want_to_try`)
+- `reactions`: user_id, recipe_id, kind (`favorite` | `want_to_try`). PK is all three. No update policy: the app only inserts (click on) and deletes (click off).
 - view `recipe_stats`: avg rating, review/favorite/want-to-try counts per recipe
 
 ## Security rules
@@ -49,8 +50,8 @@ src/components/             StarRating, RecipeCard, ReviewList, ReviewForm, Reac
 ## Milestones
 0. ✅ Clean slate + git
 1. ✅ Supabase project setup (developer)
-2. Schema: ✅ Claude wrote profiles + recipes + RLS; developer writes reviews + reactions (next)
-3. Auth (Claude): client, AuthProvider, LoginPage, route guard
+2. ✅ Schema: Claude wrote profiles + recipes + RLS; developer wrote reviews + reactions + RLS
+3. Auth (Claude): client, AuthProvider, LoginPage, route guard ← **next**. Then test RLS as a signed-in family user and as the editor.
 4. Recipe list + detail (developer)
 5. Editor form (Claude: form + photo upload; developer: ingredient/step list editing)
 6. Reviews + reactions (developer: StarRating + ReviewForm; Claude: ReactionButtons)
