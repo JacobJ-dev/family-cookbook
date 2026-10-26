@@ -25,10 +25,17 @@ What I've practiced building **Family Cookbook**: a real app for a real user (my
 | Column-level privileges: users can rename themselves but not change their own `role` | Claude wrote it; I can explain why RLS alone isn't enough |
 | Keeping secrets out of the repo: `.env.local` gitignored, publishable vs secret keys | Set up together |
 | Verifying security with tests, not assumptions: probing the API as an anonymous user | Claude ran the probes; I can explain each result |
+| **Testing RLS as real users** (editor vs family, two browsers, F12 console) | **I ran** all 13 tests and predicted each result first; Claude wrote most of the queries |
+| Reading *how* a request was blocked: insert → `42501`; update/delete → no error + `[]`; duplicate → `23505`; missing column grant → `42501` permission denied | **me** (learned by predicting, then comparing) |
+| Auth guards are for the user experience; the database (RLS) is the real gate | Can explain why bypassing `RequireAuth` in the browser still returns nothing |
 
 ### Frontend tooling
 - Scaffolding a **React 19 + TypeScript + Vite** app; what `index.html` → `main.tsx` → `App.tsx` does
-- Client-side routing with **React Router**
+- Client-side routing with **React Router**, including a **layout route** as a sign-in guard (`RequireAuth`, Claude wrote it)
+- **React Context + a custom hook** (`AuthProvider`, `useAuth()`): Claude wrote it; **I used it** in the header and can explain why a context change re-renders every component that reads it
+- **`useEffect` with subscriptions:** the effect runs once and registers a listener; the *listener* fires on every sign-in/out; cleanup runs only on unmount
+- **Magic-link auth flow** (Supabase, invite-only): **I wrote** the login form (controlled input, `idle | sending | sent | error` status, disabled button while sending, error logging)
+- **Conditional rendering:** **I wrote** the "Signed in as … / Sign out" header, and chose to render on `profile` instead of `session` to avoid a blank-name flash
 - **Generating TypeScript types from the database schema** (`npm run gen:types`), so the frontend and database can't drift apart silently
 - Linting (oxlint) and type-checking as a gate before every commit
 
@@ -53,6 +60,12 @@ This is a skill in itself, and increasingly expected in SWE roles.
 **"Tell me about a bug you caught."**
 My first update policy compared `user_id = (select user_id)`, the column to itself. It didn't error, so it *looked* fine, but it was always true: any user could take over anyone's review. I learned that a silent security bug is worse than a crash, and that policies must compare against the *caller* (`auth.uid()`). Now I verify security by testing what an unauthorized user can do.
 
+**"Tell me about a time a test passed for the wrong reason."**
+Testing that the editor can't edit a family member's review, I got `data: []`, which is what a blocked update returns. But I had swapped two user ids, so the review I was "protecting" didn't exist: the query matched nothing, and that also returns `[]`. A second test (impersonating the editor) failed with a duplicate-key error instead of the RLS error I expected, which looked like a pass at a glance. I re-ran everything with a new rule: **before testing that something is blocked, prove it exists** (select it first), and check the exact error code, not just that it failed.
+
+**"Tell me about a bug you couldn't reproduce."**
+A magic-link sign-in kept bouncing back to the login page, then worked the next day. Instead of guessing, I wrote a checklist (redirect URL, error params in the address bar, local storage token) and checked which explanations fit. The likely cause was an expired or already-used one-time link. I also ruled out a theory (opening the link in another browser) by checking which auth flow our library version uses.
+
 **"Tell me about a design decision."**
 Reactions (favorite / want to try) have no update policy. Every column is part of the primary key, so "changing" a reaction is really delete + insert. Removing the update path removed an entire class of bugs and attack surface. I also removed a default value on `kind`: a missing value should fail loudly, not silently become a favorite.
 
@@ -75,7 +88,6 @@ It has a real user with a real need: a family recipe collection with ratings, so
 ## 4. Coming up (skills each milestone will add)
 | Milestone | New skills |
 |---|---|
-| 3. Auth | React Context, custom hooks, magic-link auth flow, protected routes, **testing RLS as real users** |
 | 4. Recipe list + detail | Fetching data in React, loading and error states, URL params |
 | 5. Editor form | Controlled forms, editing arrays in state, file uploads to cloud storage |
 | 6. Reviews + reactions | Upserts, **optimistic UI updates** |
@@ -90,3 +102,4 @@ It has a real user with a real need: a family recipe collection with ratings, so
 |---|---|---|---|
 | 2026-10-23 | 0–1: setup | Created the Supabase project, configured auth, created the GitHub repo | Publishable vs secret keys; the API URL vs the base URL |
 | 2026-10-23 | 2: schema | Wrote the reviews + reactions tables and 7 RLS policies, debugged a failed migration | `using` vs `with check`; transactions roll back failed migrations |
+| 2026-10-27 | 3: auth | Wrote the login page and the signed-in header; ran all 13 RLS tests as the editor and a family member, and re-ran two after Claude spotted false passes in my console logs | An empty result can mean "blocked" *or* "nothing there": prove the row exists first |
