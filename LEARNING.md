@@ -39,11 +39,25 @@ What I've practiced building **Family Cookbook**: a real app for a real user (my
 - **Generating TypeScript types from the database schema** (`npm run gen:types`), so the frontend and database can't drift apart silently
 - Linting (oxlint) and type-checking as a gate before every commit
 
+### Frontend: fetching and showing data (milestone 4, **I wrote both pages**)
+| Skill | Where in the repo | Notes |
+|---|---|---|
+| Fetching in `useEffect` with an `ignore` flag so a late, stale response can't overwrite newer data | `RecipeListPage`, `RecipeDetailPage` | Can explain why StrictMode fires every request twice in dev |
+| Modelling loading / error / empty / data states, with `null` meaning "not loaded" and `[]` meaning "loaded, nothing there" | `RecipeListPage` | |
+| Async timing: code after `.then(...)` runs *before* the response; only code inside the callback runs after | `RecipeDetailPage` | Learned from a bug (see stories) |
+| TypeScript narrowing: each early `return` should check one variable, so the compiler can prove a value isn't null | `RecipeDetailPage` | |
+| Choosing a state type: compared hand-written, `Pick<Tables<…>>`, full row and `QueryData`; picked `Pick` | `RecipeListPage` | Full row for the detail page, where I select `*` |
+| URL params with `useParams` and a `[id]` dependency, so the effect re-runs when the URL changes | `RecipeDetailPage` | |
+| `.single()` vs `.maybeSingle()`: "not found" as an error vs as `data: null` | `RecipeDetailPage` | Chose `maybeSingle` to show a friendly "not found" |
+| Rendering lists: `.map` with `( )` for an implicit return vs `{ }` needing `return`; `key` props; when an index key is safe | both pages | Index keys are fine for read-only lists, not for the editable ones in milestone 5 |
+| JSX details: template literals need backticks **and** `{ }`; `0 && …` renders a literal `0`, so check `!== null` | both pages | |
+
 ### Professional workflow
 - **Git:** conventional commits (`feat(db): …`, `chore: …`), one commit per milestone, pushed to GitHub
 - **Reading error messages:** used `SQLSTATE 42883` and `At statement: 4` to find a typo
 - **Transactions:** a failed migration rolls back completely, so a broken push leaves nothing half-applied
 - Writing project docs: `README.md`, `.env.example`, `CLAUDE.md`
+- **Code style as a team decision:** I chose 4-space indentation and semicolons. Claude applied it in a separate `chore:` commit (so the feature diff stayed clean) and added `.editorconfig`
 
 ### AI-assisted development with Claude Code
 This is a skill in itself, and increasingly expected in SWE roles.
@@ -65,6 +79,12 @@ Testing that the editor can't edit a family member's review, I got `data: []`, w
 
 **"Tell me about a bug you couldn't reproduce."**
 A magic-link sign-in kept bouncing back to the login page, then worked the next day. Instead of guessing, I wrote a checklist (redirect URL, error params in the address bar, local storage token) and checked which explanations fit. The likely cause was an expired or already-used one-time link. I also ruled out a theory (opening the link in another browser) by checking which auth flow our library version uses.
+
+**"Tell me about a bug caught in code review."**
+On the recipe page I added a `loadingDone` flag, but set it on the line *after* the Supabase call instead of inside `.then`. The request hadn't come back yet, so the page briefly said "No recipe found" on every load. In review, Claude asked when that line runs compared with the callback. I moved it inside the callback and confirmed the fix by throttling the network to Slow 3G, which makes the flash easy to see. Lesson: starting a request doesn't wait for it, and slow-network testing exposes timing bugs that a fast connection hides.
+
+**"Tell me about a bug that looked like it worked."**
+My recipe links used `'/recipes/${recipe.id}'` in plain quotes, so every link went to the literal text `${recipe.id}`. The build passed, because it's a valid string, and every link went to the same "Page not found" page, so nothing looked broken yet. I found it by hovering a link and reading the URL. The fix needed both backticks and `{ }` in JSX. Now I check the real output, not just that the code compiles.
 
 **"Tell me about a design decision."**
 Reactions (favorite / want to try) have no update policy. Every column is part of the primary key, so "changing" a reaction is really delete + insert. Removing the update path removed an entire class of bugs and attack surface. I also removed a default value on `kind`: a missing value should fail loudly, not silently become a favorite.
@@ -88,7 +108,6 @@ It has a real user with a real need: a family recipe collection with ratings, so
 ## 4. Coming up (skills each milestone will add)
 | Milestone | New skills |
 |---|---|
-| 4. Recipe list + detail | Fetching data in React, loading and error states, URL params |
 | 5. Editor form | Controlled forms, editing arrays in state, file uploads to cloud storage |
 | 6. Reviews + reactions | Upserts, **optimistic UI updates** |
 | 7. Popularity dashboard | SQL views and aggregation (`avg`, `count`, `group by`) |
@@ -103,3 +122,4 @@ It has a real user with a real need: a family recipe collection with ratings, so
 | 2026-10-23 | 0–1: setup | Created the Supabase project, configured auth, created the GitHub repo | Publishable vs secret keys; the API URL vs the base URL |
 | 2026-10-23 | 2: schema | Wrote the reviews + reactions tables and 7 RLS policies, debugged a failed migration | `using` vs `with check`; transactions roll back failed migrations |
 | 2026-10-27 | 3: auth | Wrote the login page and the signed-in header; ran all 13 RLS tests as the editor and a family member, and re-ran two after Claude spotted false passes in my console logs | An empty result can mean "blocked" *or* "nothing there": prove the row exists first |
+| 2026-10-28 | 4: list + detail | Wrote `RecipeListPage` and `RecipeDetailPage` (fetching, loading / error / not-found states, `useParams`, list keys) and ran the browser tests. Fixed the bugs Claude found in review: link quotes, `.then` timing, narrowing, the `0` trap | Code after `.then` runs before the response; a passing build doesn't mean the output is right |

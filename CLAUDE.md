@@ -33,7 +33,7 @@ An online family cookbook. The site owner's mother-in-law is the **only editor**
 - `npm run gen:types`: regenerate `src/lib/database.types.ts` after any schema change
 
 ## Planned structure
-Built so far: `src/lib/*`, `src/auth/*`, `src/pages/LoginPage.tsx`, and the two migrations. `src/App.tsx` still has a placeholder `/` route. The rest is planned.
+Built so far: `src/lib/*`, `src/auth/*`, `src/pages/` LoginPage + RecipeListPage (`/`) + RecipeDetailPage (`/recipes/:id`), and the two migrations. The rest is planned. The pages fetch inside their own `useEffect` (no custom hooks extracted yet).
 ```
 supabase/migrations/*.sql   schema + RLS policies (source of truth for the database)
 src/lib/supabase.ts         Supabase client from VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY
@@ -79,8 +79,8 @@ src/components/             StarRating, RecipeCard, ReviewList, ReviewForm, Reac
 1. ✅ Supabase project setup (developer)
 2. ✅ Schema: Claude wrote profiles + recipes + RLS; developer wrote reviews + reactions + RLS
 3. ✅ Auth: Claude wrote the client, auth context and route guard; developer wrote LoginPage + the header and ran the RLS tests
-4. Recipe list + detail (developer) ← **next**
-5. Editor form (Claude: form + photo upload; developer: ingredient/step list editing)
+4. ✅ Recipe list + detail (developer wrote both pages; Claude reviewed)
+5. Editor form (Claude: form + photo upload; developer: ingredient/step list editing) ← **next**
 6. Reviews + reactions (developer: StarRating + ReviewForm; Claude: ReactionButtons)
 7. Popularity dashboard (Claude) + sort/filter controls (developer)
 8. Deploy to Netlify (Claude, guided)
@@ -89,12 +89,14 @@ Later: print/PDF cookbook export, in-app family invites (Edge Function), recipe 
 
 Update the milestone checklist above as milestones are completed.
 
-## Where we left off (2026-10-27)
-**Milestone 3 is done and committed.** All 13 RLS tests passed as the editor and a family member. All test recipes were deleted, so the database should have no recipes (confirm with a select).
+## Where we left off (2026-10-28)
+**Milestone 4 is done and committed.** The developer wrote both pages, and all browser tests passed (bare recipe, all-zeros uuid → "not found", `/recipes/hello` → error, Slow 3G loading). The database has **3 test recipes** (Pot Roast, Lemon Bars, and a deliberately bare Pancakes with no description/story/servings/times), inserted from the editor console. Delete them before real use.
 
-**Next: milestone 4, recipe list + detail (developer's turn).** Before they write it, explain fetching in `useEffect` (loading / error / data states, plus the `ignore` flag already used in `AuthProvider`), and URL params with `useParams`. The database is empty, so they'll need a recipe or two inserted from the editor console first.
+**Next: milestone 5, editor form.** Claude writes the form (`RecipeEditPage`), photo upload, and a migration for the `recipe-photos` bucket + storage policies. The developer writes the ingredient/step list editing. Before their part, explain why the **index keys** used on the read-only detail page become a bug once items can be added, removed or reordered. The page also needs an editor-only guard (`RequireEditor`), and RLS must still enforce it.
 
-**What the developer knows well now:** the three ways RLS says no (`42501` on insert; no error + `[]` on update/delete; `42501` permission denied from a column grant), `23505` unique violations, and the rule "prove the row exists before testing that it's blocked."
+**Known loose ends in the milestone 4 pages (not bugs today):** `RecipeDetailPage` doesn't reset `error`/`recipe`/`loadingDone` when `id` changes. That's unreachable for now, because navigation always goes through the list, which unmounts the page. It matters once recipes link to each other. The developer's files still have minor style drift (double-quote imports, a few spaces inside `<h1>`/`<h3>`, `servings &&`).
+
+**What the developer knows well now:** the three ways RLS says no (`42501` on insert; no error + `[]` on update/delete; `42501` permission denied from a column grant), `23505` unique violations, and the rule "prove the row exists before testing that it's blocked." From milestone 4: the `useEffect` fetch pattern with `ignore`, `null` vs `[]` state, code after `.then` running before the response, one-variable checks for TypeScript narrowing, `.maybeSingle()`, `( )` vs `{ }` arrow bodies, template literals in JSX, and the `0 &&` trap. They learn well from hints plus "how would you test that" (hovering links, Slow 3G throttling).
 
 **Console-testing tips:** don't sign out to switch accounts (the built-in email sender allows only a few per hour); keep the editor and family in separate browsers. The console shows only the last result of a multi-line paste, so save each result in a variable and `console.log` them, or run lines one at a time. Firefox won't let you redeclare a `const`, so use new names. Double-check which window you're in (the header shows the name).
 

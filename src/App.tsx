@@ -1,10 +1,15 @@
 import { Link, Route, Routes } from 'react-router';
 import { RequireAuth } from './auth/RequireAuth';
 import LoginPage from './pages/LoginPage';
+import RecipeListPage from './pages/RecipeListPage';
+import RecipeDetailPage from './pages/RecipeDetailPage';
 import { useAuth } from './auth/authContext';
+
 
 function App() {
     const { profile, signOut } = useAuth();
+
+    
     return (
         <>
             <header className="app-header">
@@ -23,7 +28,8 @@ function App() {
 
                     {/* Everything nested here requires being signed in. */}
                     <Route element={<RequireAuth />}>
-                        <Route path="/" element={<p>Recipes will appear here.</p>} />
+                        <Route path="/" element={<RecipeListPage />} />
+                        <Route path="/recipes/:id" element={<RecipeDetailPage />} />
                     </Route>
 
                     <Route path="*" element={<p>Page not found.</p>} />
