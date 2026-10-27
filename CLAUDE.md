@@ -11,6 +11,7 @@ An online family cookbook. The site owner's mother-in-law is the **only editor**
 - When Claude writes code: keep changes small, and explain what each part does and why.
 - When a step is marked as the developer's turn: **don't write it for them**. Give the goal, hints and relevant docs, then review their code and explain any issues.
 - The developer is new to SQL migrations (learned RLS `using` vs `with check` in milestone 2). Explain new concepts with concrete examples before asking them to write them.
+- Code style (developer's preference): **4-space indentation and semicolons** in TS/TSX/CSS (see `.editorconfig`). There's no formatter yet, so match it by hand. `src/lib/database.types.ts` is generated, so leave its formatting alone. Applied migrations keep their original 2-space style.
 - Prefer plain, readable code over clever abstractions. Don't add libraries without discussing it first.
 - Commit at the end of each milestone, with conventional-commit messages (`feat:`, `fix:`, `chore:`).
 - The developer is using this project to build a SWE portfolio. At the end of each milestone, update `LEARNING.md`: add the skills practiced (marking honestly what they wrote vs. what Claude wrote), any good interview story (bugs caught, design decisions), and a log row.
@@ -32,6 +33,7 @@ An online family cookbook. The site owner's mother-in-law is the **only editor**
 - `npm run gen:types`: regenerate `src/lib/database.types.ts` after any schema change
 
 ## Planned structure
+Built so far: `src/lib/*`, `src/auth/*`, `src/pages/LoginPage.tsx`, and the two migrations. `src/App.tsx` still has a placeholder `/` route. The rest is planned.
 ```
 supabase/migrations/*.sql   schema + RLS policies (source of truth for the database)
 src/lib/supabase.ts         Supabase client from VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY
@@ -56,7 +58,15 @@ src/components/             StarRating, RecipeCard, ReviewList, ReviewForm, Reac
 - `recipes`: title, description, story, category, servings, prep/cook minutes, `ingredients text[]`, `steps text[]`, photo_path, created_by, timestamps
 - `reviews`: recipe_id, user_id, rating 1–5, comment. Unique per (recipe_id, user_id), so updates use upsert.
 - `reactions`: user_id, recipe_id, kind (`favorite` | `want_to_try`). PK is all three. No update policy: the app only inserts (click on) and deletes (click off).
-- view `recipe_stats`: avg rating, review/favorite/want-to-try counts per recipe
+- **Not created yet:** view `recipe_stats` (avg rating, review/favorite/want-to-try counts per recipe, milestone 7) and the `recipe-photos` bucket + its storage policies (milestone 5).
+
+### Database-side mechanics (in the migrations, easy to miss from the frontend)
+- Trigger `on_auth_user_created` → `handle_new_user()` inserts the `profiles` row on first sign-in (display_name from invite metadata, else the email prefix). There is no insert policy on `profiles`.
+- New users default to `role = 'family'`. The editor role is set by hand in the dashboard SQL editor, never from the app.
+- `profiles` has a column grant: `authenticated` may update only `display_name`, so users can't promote themselves. RLS limits rows; grants limit columns.
+- Policies call `public.is_editor()` (`security definer`, `search_path = ''`) and use `(select auth.uid())` rather than bare `auth.uid()`. Follow both patterns in new migrations.
+- `set_updated_at()` trigger keeps `updated_at` current on `recipes` and `reviews`.
+- A new `VITE_*` env var must also be declared in `src/env.d.ts` and `.env.example`.
 
 ## Security rules
 - **Every table has RLS enabled.** Signed-in users can read. Only `role = 'editor'` can write recipes or upload photos. Users can write only their own reviews and reactions.
