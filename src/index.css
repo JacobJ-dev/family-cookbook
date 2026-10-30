@@ -129,3 +129,12 @@ main {
     align-items: center;
     gap: 1.5rem;
 }
+
+/* Recipe photo on the detail page: never wider than the page. */
+.recipe-photo {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 1rem 0;
+    border-radius: 8px;
+}

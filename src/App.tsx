@@ -5,7 +5,6 @@ import LoginPage from './pages/LoginPage';
 import RecipeListPage from './pages/RecipeListPage';
 import RecipeDetailPage from './pages/RecipeDetailPage';
 import RecipeEditPage from './pages/RecipeEditPage';
-import KeyDemo from './pages/KeyDemo';
 import { useAuth } from './auth/authContext';
 
 
@@ -28,9 +27,6 @@ function App() {
                 {/* Each <Route> maps a URL to a page. */}
                 <Routes>
                     <Route path="/login" element={<LoginPage />} />
-                    {/* TEMPORARY: step 4 key lesson. Remove with KeyDemo.tsx. */}
-                    <Route path="/key-demo" element={<KeyDemo />} />
-
                     {/* Everything nested here requires being signed in. */}
                     <Route element={<RequireAuth />}>
                         <Route path="/" element={<RecipeListPage />} />

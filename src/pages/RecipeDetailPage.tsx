@@ -3,6 +3,7 @@ import type { Tables } from "../lib/database.types";
 import { supabase } from "../lib/supabase";
 import { useEffect, useState } from "react";
 import { useAuth } from '../auth/authContext';
+import { getPhotoUrl } from '../lib/photos';
 
 function RecipeDetailPage() {
     const { id } = useParams();
@@ -31,6 +32,19 @@ function RecipeDetailPage() {
         return () => { ignore = true};
     }, [id]);
 
+    // Once the recipe has loaded, ask Storage for a signed URL to its photo.
+    // A separate effect, because it depends on photo_path, not on id.
+    const photoPath = recipe?.photo_path ?? null;
+    const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+    useEffect(() => {
+        if (!photoPath) return;
+        let ignore = false;
+        getPhotoUrl(photoPath).then((url) => {
+            if (!ignore) setPhotoUrl(url);
+        });
+        return () => { ignore = true; };
+    }, [photoPath]);
+
     if (error) return <p>Error: {error}</p>;
     if (!loadingDone) return <p>Loading...</p>;
     if (recipe === null) return <p>No recipe found for: {id}</p>;
@@ -38,6 +52,7 @@ function RecipeDetailPage() {
     return (
         <div className="container">
             <h1> {recipe.title} </h1>
+            {photoUrl && <img src={photoUrl} alt={recipe.title} className="recipe-photo" />}
             {isEditor && <Link to={`/recipes/${recipe.id}/edit`} className="button">Edit recipe</Link>}
             {recipe.description && <p>{recipe.description}</p>}
             {recipe.story && <p>{recipe.story}</p>}

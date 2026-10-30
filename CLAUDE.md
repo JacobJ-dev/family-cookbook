@@ -92,7 +92,7 @@ Later: print/PDF cookbook export, in-app family invites (Edge Function), recipe 
 
 Update the milestone checklist above as milestones are completed.
 
-## Where we left off (2026-10-30)
+## Where we left off (2026-10-31)
 **Milestone 5 is in progress on branch `feat/milestone-5-editor-form`** (WIP commit pushed 2026-10-30; merge to `main` when the milestone is done). The database has test recipes (Pot Roast, Lemon Bars, a deliberately bare Pancakes, plus whatever was created testing the form). Delete them all before real use.
 
 **Milestone 5 steps:**
@@ -104,16 +104,23 @@ Update the milestone checklist above as milestones are completed.
    - ✅ (2) editable inputs via `setIngredient(id, value)`. **Claude wrote this function as a worked example** after the developer got stuck; the developer wired it up and found their own `e.target.value` bug.
    - ✅ (3) `addIngredient()` + "Add new ingredient" button with `type="button"` (developer, after untangling two overlapping functions)
    - ✅ (4) `removeIngredient(id)` with `.filter()`: **written entirely by the developer**
-   - ⏭ **(5) Move up/down: next.** Guiding questions were already given (index as 2nd `.map()` arg is fine for *which rows to swap*, not for the key; copy then swap like `KeyDemo.moveUp`; one function with a direction?; `disabled` at the edges; keyboard Tab+Enter-twice test).
-   - (6) Steps list: same features; decide then whether to extract a shared component (rename `Ingredient` → something generic).
-   - Open review notes for the developer: Remove button label `-` → "Remove" (usability for her, not a11y); style nits (missing `;` after `}))` in `removeIngredient`, trailing spaces, `''` not `""` in TS, `"button"` not `'button'` in JSX, `ingredientText : string` spacing). Not yet confirmed: the "cursor stays in the same ingredient after removing a row above it" test.
-   - Blank rows: they currently save as `''`. Decide with the developer (likely drop blank rows in `ingredientsToList`).
-5. Photo upload (Claude). Start with the hands-on `Blob` lesson (see weak spot below), then canvas resize → JPEG → upload → `photo_path` → signed URL on the detail page.
-6. Tests, delete `KeyDemo.tsx` + its route, "unsaved changes" warning, LEARNING.md, milestone checklist, merge.
+   - ✅ (5) `moveUp(index)` / `moveDown(index)` (developer). moveUp's swap was adapted from `KeyDemo` with help bridging `setItems(prev)` → `setForm(prev)` + `prev.ingredients`. **moveDown and its `disabled={idx === form.ingredients.length - 1}` were written without looking.** Style nits remain (`){`, `index:number`, `ingredients:next`, `index+1`, a missing `;` after `})`, blank lines, leading spaces in the button labels).
+   - ✅ (6) Shared functions, option A (developer, 2026-10-31): `ListItem`, `ListField = 'ingredients' | 'steps'`, `createListItem`, `setItem/addItem/removeItem/moveUp/moveDown(list, ...)` using `prev[list]` + `[list]:`; steps are an `<ol>` of `<textarea>`s. A `<ListEditor>` component (option B) was deferred.
+   - ✅ Blank rows are dropped on save: `listItemToStringArr` = `.map(trim).filter(!== '')`.
+   - Bugs the developer caught and fixed: steps' Move down checked `form.ingredients.length` (copy-paste; it would crash when the lists differ in length); an inverted filter (`=== ''`) wiped all ingredients/steps from the test "Pot Roast" on save. The data is gone; refill it through the form as a test. Both are good LEARNING.md stories.
+   - Style nits still open (developer): `fieldText : string`, `.map((createListItem))` extra parens, stray comma in `listItemToStringArr(form.ingredients,)`, param `listItem` → `items`, moveUp/moveDown spacing/`;`/blank lines, `> Move up`/`> Move Down` leading spaces + "Down" → "down".
+5. Photo upload (Claude). ✅ `src/lib/photos.ts` (`resizeToJpeg`, `uploadRecipePhoto`, `deleteRecipePhoto`, `getPhotoUrl`), browser-tested on its own. ✅ **Wired in 2026-10-31** (the developer chose to move the Blob lesson to next session to save time): the form has a file input (`photoFile` state, `photoPath` loaded from the recipe); after the recipe saves → upload → update `photo_path` → delete the old file. On photo failure the recipe stays saved, a plain message shows, and a *new* recipe moves to its edit page so a retry can't create a duplicate. The detail page has a second effect, `getPhotoUrl(photo_path)` → `<img className="recipe-photo">`. ✅ Developer tested real uploads 2026-10-31: a photo on a new recipe and replacing a photo both work. (Harmless console noise seen: a one-off Vite HMR error for the deleted `KeyDemo.tsx`, and Firefox rejecting Cloudflare's `__cf_bm` cookie on the signed photo URLs.) Still owed: the Blob lesson (console snippets b1/b2/`text()`/file picker) and walking through `photos.ts` + the save flow line by line.
+6. ✅ `KeyDemo.tsx` and its route deleted. Remaining wrap-up: "unsaved changes" warning (note: react-router's `useBlocker` needs a *data router* (`createBrowserRouter`); we use `<BrowserRouter>`, so either switch routers or settle for a `beforeunload` warning on reload/close only; discuss first), full browser test run (refill Pot Roast, upload + replace a photo, HEIC message in Chrome, family can't upload), developer style nits, LEARNING.md, milestone checklist, merge to `main`.
 
 **Scope decision (developer, 2026-10-30):** no `aria-label`s on the list-row inputs. Screen-reader support isn't a need for these stakeholders, so don't push it again. (The main form fields keep their visible `<label>`s.)
 
 **Edit UX decision (2026-10-30, developer agreed):** a separate edit page, not inline editing. The form mirrors the detail page's layout and order, with labeled real inputs. There's a big obvious Edit button, and Save returns to the recipe page. Warn on leaving with unsaved changes. The same form serves new and edit. Inline editing was rejected because she'd have to discover it, a stray tap could change a recipe, there's no single Cancel, and a new recipe still needs a form. Small inline fixes could come after launch.
+
+**The developer's main learning gap (their words, 2026-10-31): recognition vs. building.** "Like a Lego kit: I can name every brick in a built kit, but without the manual I can't build it." They read and explain code fine; the gap is *decomposing a problem into steps* by themselves. Still shaky: `( )` vs `{ }` arrow bodies (taught again 2026-10-31 with five console experiments a–e). How to teach from now on:
+- **Plan before code** on every developer turn: they write the steps as plain-English comments first ("copy the array", "swap", "put it back in the form"), Claude reviews the *plan*, and only then do they code. This is the skill to practice, so don't skip it to save time.
+- Use the repeatable checklist for any state change: (1) what is the state now? (2) what should it be after? (3) which tool makes the new value without mutating (`map` = change one, `filter` = remove, `[...a, x]` = add, copy + swap = reorder)? (4) wrap it in `setForm((prev) => ...)`.
+- Rebuild from memory: sub-step 6 (steps list) is done **without looking at the ingredient code**, plan first.
+- Point out real evidence of building when it happens (e.g. moveDown), so they can see progress.
 
 **Mental model that clicked (2026-10-30):** the form is a *draft* in browser memory; only Save sends it to the database (the developer first thought "Add ingredient" saved something).
 
