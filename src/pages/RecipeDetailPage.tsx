@@ -2,16 +2,19 @@ import { Link, useParams } from "react-router";
 import type { Tables } from "../lib/database.types";
 import { supabase } from "../lib/supabase";
 import { useEffect, useState } from "react";
+import { useAuth } from '../auth/authContext';
 
 function RecipeDetailPage() {
     const { id } = useParams();
     const [recipe, setRecipe] = useState<Tables<'recipes'> | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [loadingDone, setLoadingDone] = useState(false);
+    const { profile } = useAuth();
+    const isEditor = profile?.role === 'editor';
 
     useEffect(() => {
         if(!id) return;
-        let ignore = false;        
+        let ignore = false;
         supabase.from('recipes')
         .select('*')
         .eq('id', id)
@@ -22,7 +25,7 @@ function RecipeDetailPage() {
             else{
                 setRecipe(data);
                 setLoadingDone(true);
-            } 
+            }
         });
         
         return () => { ignore = true};
@@ -34,11 +37,12 @@ function RecipeDetailPage() {
 
     return (
         <div className="container">
-            <h1> {recipe.title} </h1>           
+            <h1> {recipe.title} </h1>
+            {isEditor && <Link to={`/recipes/${recipe.id}/edit`} className="button">Edit recipe</Link>}
             {recipe.description && <p>{recipe.description}</p>}
             {recipe.story && <p>{recipe.story}</p>}
 
-            <h3> The recipe </h3>            
+            <h3> The recipe </h3>
             {recipe.category && <p>{recipe.category}</p>}
             {recipe.servings !== null && <p>Servings: {recipe.servings}</p>}
             {recipe.prep_minutes !== null && <p>Prep Minutes: {recipe.prep_minutes}</p>}
@@ -59,7 +63,6 @@ function RecipeDetailPage() {
             </ol>
             <Link to="/">Return back to Recipe List</Link>
         </div>
-        
     );
 }
 

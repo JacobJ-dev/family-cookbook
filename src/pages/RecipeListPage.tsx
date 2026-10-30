@@ -2,12 +2,15 @@ import { Link } from "react-router";
 import type { Tables } from "../lib/database.types";
 import { supabase } from "../lib/supabase";
 import { useState, useEffect } from "react";
+import { useAuth } from '../auth/authContext';
 
 type RecipeSummary = Pick<Tables<'recipes'>, 'id' | 'title' | 'description' | 'category'>;
 
 function RecipeListPage() {
     const [recipes, setRecipes] = useState<RecipeSummary[] | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const { profile } = useAuth();
+    const isEditor = profile?.role === 'editor';
 
     useEffect(() => {
         let ignore = false;
@@ -24,10 +27,11 @@ function RecipeListPage() {
 
     if (error) return <p>Error: {error}</p>;
     if (recipes === null) return <p>Loading...</p>;
-    if (recipes.length === 0) return <p>No recipes yet. Coming Soon!</p>;
     return (
         <div className="container">
             <h1>Recipes</h1>
+            {isEditor && <Link to="/recipes/new" className="button">New recipe</Link>}
+            {recipes.length === 0 && <p>No recipes yet. Coming Soon!</p>}
 
             <ul>
                 {recipes.map((recipe) => (
