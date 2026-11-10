@@ -41,7 +41,7 @@ const emptyForm: RecipeForm = {
     steps: [],
 };
 
-function createListItem(fieldText : string): ListItem {
+function createListItem(fieldText: string): ListItem {
     return {
         id: crypto.randomUUID(),
         text: fieldText,
@@ -58,8 +58,8 @@ function toForm(recipe: Tables<'recipes'>): RecipeForm {
         servings: recipe.servings?.toString() ?? '',
         prep_minutes: recipe.prep_minutes?.toString() ?? '',
         cook_minutes: recipe.cook_minutes?.toString() ?? '',
-        ingredients: recipe.ingredients.map((createListItem)),
-        steps: recipe.steps.map((createListItem)),
+        ingredients: recipe.ingredients.map(createListItem),
+        steps: recipe.steps.map(createListItem),
     };
 }
 
@@ -74,7 +74,7 @@ function toRow(form: RecipeForm): TablesInsert<'recipes'> {
         servings: numberOrNull(form.servings),
         prep_minutes: numberOrNull(form.prep_minutes),
         cook_minutes: numberOrNull(form.cook_minutes),
-        ingredients: listItemToStringArr(form.ingredients,),
+        ingredients: listItemToStringArr(form.ingredients),
         steps: listItemToStringArr(form.steps),
     };
 }
@@ -88,8 +88,8 @@ function numberOrNull(text: string): number | null {
     return text.trim() === '' ? null : Number(text);
 }
 
-function listItemToStringArr(listItem: ListItem[]): string[] {
-    const listItems: string[] = listItem.map((item) => {
+function listItemToStringArr(items: ListItem[]): string[] {
+    const listItems: string[] = items.map((item) => {
         return item.text.trim();
     }).filter(item => item !== '');
     return listItems;
@@ -165,25 +165,21 @@ function RecipeEditPage() {
         }));
     }
 
-    function moveUp(list: ListField, index: number){
+    function moveUp(list: ListField, index: number) {
         setForm((prev) => {
             const next = [...prev[list]];
             [next[index - 1], next[index]] = [next[index], next[index - 1]];
-            return { ...prev, [list]:next};
-            
+            return { ...prev, [list]: next};
         });
     }
 
-    function moveDown(list: ListField, index:number){
+    function moveDown(list: ListField, index: number) {
         setForm((prev) => {
             const next = [...prev[list]];
-            [next[index], next[index+1]] = [next[index+1], next[index]];
-            return { ...prev, [list]:next};
-        })
+            [next[index], next[index + 1]] = [next[index + 1], next[index]];
+            return { ...prev, [list]: next};
+        });
     }
-
-
-
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         // Without this the browser does its own old-style submit: a full page
@@ -344,8 +340,8 @@ function RecipeEditPage() {
                                 onChange={(e) => setItem('ingredients', ingredient.id, e.target.value)}
                             />
                             <button type="button" onClick={() => removeItem('ingredients', ingredient.id)}>×</button>
-                            <button type="button" onClick={() => moveUp('ingredients', idx)} disabled={idx === 0}> Move up</button>
-                            <button type="button" onClick={() => moveDown('ingredients', idx)} disabled={idx === form.ingredients.length - 1}> Move Down</button>
+                            <button type="button" onClick={() => moveUp('ingredients', idx)} disabled={idx === 0}>Move up</button>
+                            <button type="button" onClick={() => moveDown('ingredients', idx)} disabled={idx === form.ingredients.length - 1}>Move Down</button>
                         </li>
                     ))}
                 </ul>
@@ -360,8 +356,8 @@ function RecipeEditPage() {
                                 onChange={(e) => setItem('steps', step.id, e.target.value)}
                             />
                             <button type="button" onClick={() => removeItem('steps', step.id)}>×</button>
-                            <button type="button" onClick={() => moveUp('steps', idx)} disabled={idx === 0}> Move up</button>
-                            <button type="button" onClick={() => moveDown('steps', idx)} disabled={idx === form.steps.length - 1}> Move Down</button>
+                            <button type="button" onClick={() => moveUp('steps', idx)} disabled={idx === 0}>Move up</button>
+                            <button type="button" onClick={() => moveDown('steps', idx)} disabled={idx === form.steps.length - 1}>Move Down</button>
                         </li>
                     ))}
                 </ol>
