@@ -169,7 +169,7 @@ function RecipeEditPage() {
         setForm((prev) => {
             const next = [...prev[list]];
             [next[index - 1], next[index]] = [next[index], next[index - 1]];
-            return { ...prev, [list]: next};
+            return { ...prev, [list]: next };
         });
     }
 
@@ -177,7 +177,7 @@ function RecipeEditPage() {
         setForm((prev) => {
             const next = [...prev[list]];
             [next[index], next[index + 1]] = [next[index + 1], next[index]];
-            return { ...prev, [list]: next};
+            return { ...prev, [list]: next };
         });
     }
 
@@ -341,7 +341,7 @@ function RecipeEditPage() {
                             />
                             <button type="button" onClick={() => removeItem('ingredients', ingredient.id)}>×</button>
                             <button type="button" onClick={() => moveUp('ingredients', idx)} disabled={idx === 0}>Move up</button>
-                            <button type="button" onClick={() => moveDown('ingredients', idx)} disabled={idx === form.ingredients.length - 1}>Move Down</button>
+                            <button type="button" onClick={() => moveDown('ingredients', idx)} disabled={idx === form.ingredients.length - 1}>Move down</button>
                         </li>
                     ))}
                 </ul>
@@ -357,7 +357,7 @@ function RecipeEditPage() {
                             />
                             <button type="button" onClick={() => removeItem('steps', step.id)}>×</button>
                             <button type="button" onClick={() => moveUp('steps', idx)} disabled={idx === 0}>Move up</button>
-                            <button type="button" onClick={() => moveDown('steps', idx)} disabled={idx === form.steps.length - 1}>Move Down</button>
+                            <button type="button" onClick={() => moveDown('steps', idx)} disabled={idx === form.steps.length - 1}>Move down</button>
                         </li>
                     ))}
                 </ol>

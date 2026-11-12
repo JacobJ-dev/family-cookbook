@@ -34,11 +34,12 @@ An online family cookbook. The site owner's mother-in-law is the **only editor**
 - `npm run gen:types`: regenerate `src/lib/database.types.ts` after any schema change
 
 ## Planned structure
-Built so far: `src/lib/*`, `src/auth/*` (incl. RequireEditor), `src/pages/` LoginPage + RecipeListPage (`/`) + RecipeDetailPage (`/recipes/:id`) + RecipeEditPage (`/recipes/new`, `/recipes/:id/edit`; in progress), the temporary KeyDemo (`/key-demo`), and three migrations. The rest is planned. The pages fetch inside their own `useEffect` (no custom hooks extracted yet).
+Built so far: `src/lib/*`, `src/auth/*` (incl. RequireEditor), `src/pages/` LoginPage + RecipeListPage (`/`) + RecipeDetailPage (`/recipes/:id`) + RecipeEditPage (`/recipes/new`, `/recipes/:id/edit`), and three migrations. The rest is planned. The pages fetch inside their own `useEffect` (no custom hooks extracted yet).
 ```
 supabase/migrations/*.sql   schema + RLS policies (source of truth for the database)
 src/lib/supabase.ts         Supabase client from VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY
-src/lib/database.types.ts   generated: npx supabase gen types
+src/lib/database.types.ts   generated: npm run gen:types
+src/lib/photos.ts           resizeToJpeg, uploadRecipePhoto, deleteRecipePhoto, getPhotoUrl (signed URLs)
 src/auth/authContext.ts     AuthContext + useAuth() hook + Profile type
 src/auth/AuthProvider.tsx   session + profile state (kept apart from the hook so fast refresh works)
 src/auth/RequireAuth.tsx    layout-route guard: <Route element={<RequireAuth />}> wraps signed-in pages
@@ -83,8 +84,8 @@ src/components/             StarRating, RecipeCard, ReviewList, ReviewForm, Reac
 2. ✅ Schema: Claude wrote profiles + recipes + RLS; developer wrote reviews + reactions + RLS
 3. ✅ Auth: Claude wrote the client, auth context and route guard; developer wrote LoginPage + the header and ran the RLS tests
 4. ✅ Recipe list + detail (developer wrote both pages; Claude reviewed)
-5. Editor form (Claude: form + photo upload; developer: ingredient/step list editing) ← **in progress**
-6. Reviews + reactions (developer: StarRating + ReviewForm; Claude: ReactionButtons)
+5. ✅ Editor form (Claude: form + photo upload; developer: ingredient/step list editing)
+6. Reviews + reactions (developer: StarRating + ReviewForm; Claude: ReactionButtons) ← **next**
 7. Popularity dashboard (Claude) + sort/filter controls (developer)
 8. Deploy to Netlify (Claude, guided). **Must handle the Supabase free-tier pause:** the project was paused after ~2 weeks without use (seen 2026-11-11), so a quiet family site would break until someone restores it in the dashboard. Decide on a keep-alive (e.g. a scheduled ping) or the paid plan before launch.
 
@@ -92,34 +93,27 @@ Later: print/PDF cookbook export, in-app family invites (Edge Function), recipe 
 
 Update the milestone checklist above as milestones are completed.
 
-## Where we left off (2026-10-31)
-**Milestone 5 is in progress on branch `feat/milestone-5-editor-form`** (WIP commit pushed 2026-10-30; merge to `main` when the milestone is done). The database has test recipes (Pot Roast, Lemon Bars, a deliberately bare Pancakes, plus whatever was created testing the form). Delete them all before real use.
+## Where we left off (2026-11-13)
+**Milestone 5 is done** (merged to `main` 2026-11-13). **Next: milestone 6**, starting with the developer's `StarRating` (plan in plain-English comments first).
 
-**Milestone 5 steps:**
-1. ✅ Storage migration `20261030120000` (Claude), pushed; developer ran all Storage RLS tests.
-2. ✅ `src/auth/RequireEditor.tsx` nested in `RequireAuth`; routes `/recipes/new` + `/recipes/:id/edit`; editor-only New / "Edit recipe" links styled as `.button` (Claude). Developer tested all cases.
-3. ✅ `RecipeEditPage` form (Claude): one page for new + edit, `toForm`/`toRow`, `setField`, `.select('id').single()` on save. Developer added the blank-title check and moved the "Could not save" prefix into the DB-error branch.
-4. **List editor (developer), split into sub-steps, ingredients first:**
-   - ✅ (1) `Ingredient = { id, text }`, `createIngredient(text)` helper, `toForm` maps strings → rows, `ingredientsToList` maps back, `key={ingredient.id}`
-   - ✅ (2) editable inputs via `setIngredient(id, value)`. **Claude wrote this function as a worked example** after the developer got stuck; the developer wired it up and found their own `e.target.value` bug.
-   - ✅ (3) `addIngredient()` + "Add new ingredient" button with `type="button"` (developer, after untangling two overlapping functions)
-   - ✅ (4) `removeIngredient(id)` with `.filter()`: **written entirely by the developer**
-   - ✅ (5) `moveUp(index)` / `moveDown(index)` (developer). moveUp's swap was adapted from `KeyDemo` with help bridging `setItems(prev)` → `setForm(prev)` + `prev.ingredients`. **moveDown and its `disabled={idx === form.ingredients.length - 1}` were written without looking.** Style nits remain (`){`, `index:number`, `ingredients:next`, `index+1`, a missing `;` after `})`, blank lines, leading spaces in the button labels).
-   - ✅ (6) Shared functions, option A (developer, 2026-10-31): `ListItem`, `ListField = 'ingredients' | 'steps'`, `createListItem`, `setItem/addItem/removeItem/moveUp/moveDown(list, ...)` using `prev[list]` + `[list]:`; steps are an `<ol>` of `<textarea>`s. A `<ListEditor>` component (option B) was deferred.
-   - ✅ Blank rows are dropped on save: `listItemToStringArr` = `.map(trim).filter(!== '')`.
-   - Bugs the developer caught and fixed: steps' Move down checked `form.ingredients.length` (copy-paste; it would crash when the lists differ in length); an inverted filter (`=== ''`) wiped all ingredients/steps from the test "Pot Roast" on save. The data is gone; refill it through the form as a test. Both are good LEARNING.md stories.
-   - Style nits: mostly fixed by the developer 2026-11-11. Still open: `[list]: next}` → `next }` (moveUp/moveDown), "Move Down" → "Move down", and the steps list's `> Move up`/`> Move Down` leading spaces.
-5. Photo upload (Claude). ✅ `src/lib/photos.ts` (`resizeToJpeg`, `uploadRecipePhoto`, `deleteRecipePhoto`, `getPhotoUrl`), browser-tested on its own. ✅ **Wired in 2026-10-31** (the developer chose to move the Blob lesson to next session to save time): the form has a file input (`photoFile` state, `photoPath` loaded from the recipe); after the recipe saves → upload → update `photo_path` → delete the old file. On photo failure the recipe stays saved, a plain message shows, and a *new* recipe moves to its edit page so a retry can't create a duplicate. The detail page has a second effect, `getPhotoUrl(photo_path)` → `<img className="recipe-photo">`. ✅ Developer tested real uploads 2026-10-31: a photo on a new recipe and replacing a photo both work. (Harmless console noise seen: a one-off Vite HMR error for the deleted `KeyDemo.tsx`, and Firefox rejecting Cloudflare's `__cf_bm` cookie on the signed photo URLs.) 2026-11-11: the developer did the Blob console lesson (results not discussed). A written, table-heavy walkthrough of `photos.ts` + the save flow **didn't land** ("not really getting this right now", first day back after two weeks away and a house move). Next time, try it differently: **hands-on and one piece at a time**. Add temporary `console.log`s (e.g. the `File` from the picker, the Blob from `toBlob` with its `.type`/`.size`, then the path after upload), have them upload a photo and watch the values appear, and connect each to the Blob lesson. Use one analogy, not a table. The two check questions still open: which line sets `image/jpeg` (`toBlob`'s 2nd argument), and why delete the old photo *after* uploading the new one. Don't merge milestone 5 until this has landed.
-6. ✅ `KeyDemo.tsx` and its route deleted. **"Unsaved changes" warning: deferred until after launch** (developer, 2026-11-11). Reason: react-router's `useBlocker` needs a *data router* (`createBrowserRouter`); we use `<BrowserRouter>`, and the time is better spent on milestones 6–8 before Christmas. Remaining wrap-up: full browser test run (refill Pot Roast, upload + replace a photo, HEIC message in Chrome, family can't upload), developer style nits, LEARNING.md, milestone checklist, merge to `main`.
+The database has test recipes (Pot Roast, Lemon Bars, a deliberately bare Pancakes, plus others created testing the form) and their test photos. Delete them all before real use.
+
+**Deferred from milestone 5 until after launch:**
+- The "unsaved changes" warning. react-router's `useBlocker` needs a *data router* (`createBrowserRouter`), and we use `<BrowserRouter>`.
+- A `<ListEditor>` component. Today the ingredient and step lists share functions in `RecipeEditPage` (`setItem/addItem/removeItem/moveUp/moveDown(list, ...)` with `list: 'ingredients' | 'steps'`).
+
+**Photo upload walkthrough (landed 2026-11-13).** A written, table-heavy version failed on 2026-11-11. What worked: temporary `console.log`s, predictions before each run, one piece at a time. The developer saw the picker's `File` (`type`, `size`), the line where `toBlob`'s 2nd argument relabels it `image/jpeg`, a 57 KB PNG becoming a *116 KB* JPEG (pixels vs bytes), and the `<recipeId>/<random>.jpg` path. They also explained why the old photo is deleted *after* the new one is in place. The analogy that worked: a `File`/`Blob` is a **sealed parcel** with a label (`type`, `size`). The canvas unpacks it, and `toBlob` packs a new parcel with a new label. Reuse it.
+
+Harmless console noise: Firefox rejects Cloudflare's `__cf_bm` cookie on the signed photo URLs.
 
 **Scope decision (developer, 2026-10-30):** no `aria-label`s on the list-row inputs. Screen-reader support isn't a need for these stakeholders, so don't push it again. (The main form fields keep their visible `<label>`s.)
 
-**Edit UX decision (2026-10-30, developer agreed):** a separate edit page, not inline editing. The form mirrors the detail page's layout and order, with labeled real inputs. There's a big obvious Edit button, and Save returns to the recipe page. Warn on leaving with unsaved changes. The same form serves new and edit. Inline editing was rejected because she'd have to discover it, a stray tap could change a recipe, there's no single Cancel, and a new recipe still needs a form. Small inline fixes could come after launch.
+**Edit UX decision (2026-10-30, developer agreed):** a separate edit page, not inline editing. The form mirrors the detail page's layout and order, with labeled real inputs. There's a big obvious Edit button, and Save returns to the recipe page. Warn on leaving with unsaved changes (deferred, see above). The same form serves new and edit. Inline editing was rejected because she'd have to discover it, a stray tap could change a recipe, there's no single Cancel, and a new recipe still needs a form. Small inline fixes could come after launch.
 
 **The developer's main learning gap (their words, 2026-10-31): recognition vs. building.** "Like a Lego kit: I can name every brick in a built kit, but without the manual I can't build it." They read and explain code fine; the gap is *decomposing a problem into steps* by themselves. Still shaky: `( )` vs `{ }` arrow bodies (taught again 2026-10-31 with five console experiments a–e). How to teach from now on:
 - **Plan before code** on every developer turn: they write the steps as plain-English comments first ("copy the array", "swap", "put it back in the form"), Claude reviews the *plan*, and only then do they code. This is the skill to practice, so don't skip it to save time.
 - Use the repeatable checklist for any state change: (1) what is the state now? (2) what should it be after? (3) which tool makes the new value without mutating (`map` = change one, `filter` = remove, `[...a, x]` = add, copy + swap = reorder)? (4) wrap it in `setForm((prev) => ...)`.
-- Rebuild from memory: sub-step 6 (steps list) is done **without looking at the ingredient code**, plan first.
+- Rebuild from memory: e.g. the steps list was built **without looking at the ingredient code**, plan first. Keep doing this.
 - Point out real evidence of building when it happens (e.g. moveDown), so they can see progress.
 
 **Mental model that clicked (2026-10-30):** the form is a *draft* in browser memory; only Save sends it to the database (the developer first thought "Add ingredient" saved something).
