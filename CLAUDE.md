@@ -11,7 +11,8 @@ An online family cookbook. The site owner's mother-in-law is the **only editor**
 - When Claude writes code: keep changes small, and explain what each part does and why.
 - When a step is marked as the developer's turn: **don't write it for them**. Give the goal, hints and relevant docs, then review their code and explain any issues.
 - The developer is new to SQL migrations (learned RLS `using` vs `with check` in milestone 2). Explain new concepts with concrete examples before asking them to write them.
-- Code style (developer's preference): **4-space indentation and semicolons** in TS/TSX/CSS (see `.editorconfig`). There's no formatter yet, so match it by hand. `src/lib/database.types.ts` is generated, so leave its formatting alone. Applied migrations keep their original 2-space style.
+- Code style (developer's preference): **4-space indentation and semicolons** in TS/TSX/CSS (see `.editorconfig`). There's no formatter yet, so match it by hand. `src/lib/database.types.ts` is generated, so leave its formatting alone. Applied migrations keep their original 2-space style. JSON/MD/TOML/YAML use 2 spaces. Line endings are LF (`.gitattributes` normalizes them; the developer is on Windows, so git's "CRLF will be replaced" warnings are expected).
+- oxlint enforces `react/rules-of-hooks` and `react/only-export-components`. The second one is why hooks/contexts live in separate files from components (e.g. `authContext.ts` vs `AuthProvider.tsx`).
 - Prefer plain, readable code over clever abstractions. Don't add libraries without discussing it first.
 - Commit at the end of each milestone, with conventional-commit messages (`feat:`, `fix:`, `chore:`).
 - The developer is using this project to build a SWE portfolio. At the end of each milestone, update `LEARNING.md`: add the skills practiced (marking honestly what they wrote vs. what Claude wrote), any good interview story (bugs caught, design decisions), and a log row.
@@ -33,16 +34,18 @@ An online family cookbook. The site owner's mother-in-law is the **only editor**
 - `npm run gen:types`: regenerate `src/lib/database.types.ts` after any schema change
 
 ## Planned structure
-Built so far: `src/lib/*`, `src/auth/*`, `src/pages/` LoginPage + RecipeListPage (`/`) + RecipeDetailPage (`/recipes/:id`), and the two migrations. The rest is planned. The pages fetch inside their own `useEffect` (no custom hooks extracted yet).
+Built so far: `src/lib/*`, `src/auth/*` (incl. RequireEditor), `src/pages/` LoginPage + RecipeListPage (`/`) + RecipeDetailPage (`/recipes/:id`) + RecipeEditPage (`/recipes/new`, `/recipes/:id/edit`), and three migrations. The rest is planned. The pages fetch inside their own `useEffect` (no custom hooks extracted yet).
 ```
 supabase/migrations/*.sql   schema + RLS policies (source of truth for the database)
 src/lib/supabase.ts         Supabase client from VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY
-src/lib/database.types.ts   generated: npx supabase gen types
+src/lib/database.types.ts   generated: npm run gen:types
+src/lib/photos.ts           resizeToJpeg, uploadRecipePhoto, deleteRecipePhoto, getPhotoUrl (signed URLs)
 src/auth/authContext.ts     AuthContext + useAuth() hook + Profile type
 src/auth/AuthProvider.tsx   session + profile state (kept apart from the hook so fast refresh works)
 src/auth/RequireAuth.tsx    layout-route guard: <Route element={<RequireAuth />}> wraps signed-in pages
+src/auth/RequireEditor.tsx  layout-route guard nested inside RequireAuth: non-editors → /
 src/pages/                  LoginPage, RecipeListPage, RecipeDetailPage, RecipeEditPage, PopularityPage
-src/components/             StarRating, RecipeCard, ReviewList, ReviewForm, ReactionButtons, RequireEditor
+src/components/             StarRating, RecipeCard, ReviewList, ReviewForm, ReactionButtons
 ```
 
 ## How auth fits together
@@ -58,7 +61,8 @@ src/components/             StarRating, RecipeCard, ReviewList, ReviewForm, Reac
 - `recipes`: title, description, story, category, servings, prep/cook minutes, `ingredients text[]`, `steps text[]`, photo_path, created_by, timestamps
 - `reviews`: recipe_id, user_id, rating 1–5, comment. Unique per (recipe_id, user_id), so updates use upsert.
 - `reactions`: user_id, recipe_id, kind (`favorite` | `want_to_try`). PK is all three. No update policy: the app only inserts (click on) and deletes (click off).
-- **Not created yet:** view `recipe_stats` (avg rating, review/favorite/want-to-try counts per recipe, milestone 7) and the `recipe-photos` bucket + its storage policies (milestone 5).
+- Storage bucket `recipe-photos` (migration `20261030120000`): **private** (decided 2026-10-30, because photos are family-only), so the app shows photos through short-lived signed URLs. It accepts only `image/jpeg` up to 5 MB, because the app resizes every photo to a ~1600px JPEG in the browser (canvas) before uploading. That also strips GPS/EXIF data, and HEIC that the browser can't decode gets a friendly error. Paths look like `<recipeId>/<random>.jpg`. Policies: signed-in users read; the editor inserts and deletes; there's no update policy (a replaced photo is a new file, and the old one is deleted).
+- **Not created yet:** view `recipe_stats` (avg rating, review/favorite/want-to-try counts per recipe, milestone 7).
 
 ### Database-side mechanics (in the migrations, easy to miss from the frontend)
 - Trigger `on_auth_user_created` → `handle_new_user()` inserts the `profiles` row on first sign-in (display_name from invite metadata, else the email prefix). There is no insert policy on `profiles`.
@@ -80,23 +84,49 @@ src/components/             StarRating, RecipeCard, ReviewList, ReviewForm, Reac
 2. ✅ Schema: Claude wrote profiles + recipes + RLS; developer wrote reviews + reactions + RLS
 3. ✅ Auth: Claude wrote the client, auth context and route guard; developer wrote LoginPage + the header and ran the RLS tests
 4. ✅ Recipe list + detail (developer wrote both pages; Claude reviewed)
-5. Editor form (Claude: form + photo upload; developer: ingredient/step list editing) ← **next**
-6. Reviews + reactions (developer: StarRating + ReviewForm; Claude: ReactionButtons)
+5. ✅ Editor form (Claude: form + photo upload; developer: ingredient/step list editing)
+6. Reviews + reactions (developer: StarRating + ReviewForm; Claude: ReactionButtons) ← **next**
 7. Popularity dashboard (Claude) + sort/filter controls (developer)
-8. Deploy to Netlify (Claude, guided)
+8. Deploy to Netlify (Claude, guided). **Must handle the Supabase free-tier pause:** the project was paused after ~2 weeks without use (seen 2026-11-11), so a quiet family site would break until someone restores it in the dashboard. Decide on a keep-alive (e.g. a scheduled ping) or the paid plan before launch.
 
 Later: print/PDF cookbook export, in-app family invites (Edge Function), recipe versions.
 
 Update the milestone checklist above as milestones are completed.
 
-## Where we left off (2026-10-28)
-**Milestone 4 is done and committed.** The developer wrote both pages, and all browser tests passed (bare recipe, all-zeros uuid → "not found", `/recipes/hello` → error, Slow 3G loading). The database has **3 test recipes** (Pot Roast, Lemon Bars, and a deliberately bare Pancakes with no description/story/servings/times), inserted from the editor console. Delete them before real use.
+## Where we left off (2026-11-13)
+**Milestone 5 is done** (merged to `main` 2026-11-13). **Next: milestone 6**, starting with the developer's `StarRating` (plan in plain-English comments first).
 
-**Next: milestone 5, editor form.** Claude writes the form (`RecipeEditPage`), photo upload, and a migration for the `recipe-photos` bucket + storage policies. The developer writes the ingredient/step list editing. Before their part, explain why the **index keys** used on the read-only detail page become a bug once items can be added, removed or reordered. The page also needs an editor-only guard (`RequireEditor`), and RLS must still enforce it.
+The database has test recipes (Pot Roast, Lemon Bars, a deliberately bare Pancakes, plus others created testing the form) and their test photos. Delete them all before real use.
 
-**Known loose ends in the milestone 4 pages (not bugs today):** `RecipeDetailPage` doesn't reset `error`/`recipe`/`loadingDone` when `id` changes. That's unreachable for now, because navigation always goes through the list, which unmounts the page. It matters once recipes link to each other. The developer's files still have minor style drift (double-quote imports, a few spaces inside `<h1>`/`<h3>`, `servings &&`).
+**Deferred from milestone 5 until after launch:**
+- The "unsaved changes" warning. react-router's `useBlocker` needs a *data router* (`createBrowserRouter`), and we use `<BrowserRouter>`.
+- A `<ListEditor>` component. Today the ingredient and step lists share functions in `RecipeEditPage` (`setItem/addItem/removeItem/moveUp/moveDown(list, ...)` with `list: 'ingredients' | 'steps'`).
 
-**What the developer knows well now:** the three ways RLS says no (`42501` on insert; no error + `[]` on update/delete; `42501` permission denied from a column grant), `23505` unique violations, and the rule "prove the row exists before testing that it's blocked." From milestone 4: the `useEffect` fetch pattern with `ignore`, `null` vs `[]` state, code after `.then` running before the response, one-variable checks for TypeScript narrowing, `.maybeSingle()`, `( )` vs `{ }` arrow bodies, template literals in JSX, and the `0 &&` trap. They learn well from hints plus "how would you test that" (hovering links, Slow 3G throttling).
+**Photo upload walkthrough (landed 2026-11-13).** A written, table-heavy version failed on 2026-11-11. What worked: temporary `console.log`s, predictions before each run, one piece at a time. The developer saw the picker's `File` (`type`, `size`), the line where `toBlob`'s 2nd argument relabels it `image/jpeg`, a 57 KB PNG becoming a *116 KB* JPEG (pixels vs bytes), and the `<recipeId>/<random>.jpg` path. They also explained why the old photo is deleted *after* the new one is in place. The analogy that worked: a `File`/`Blob` is a **sealed parcel** with a label (`type`, `size`). The canvas unpacks it, and `toBlob` packs a new parcel with a new label. Reuse it.
+
+Harmless console noise: Firefox rejects Cloudflare's `__cf_bm` cookie on the signed photo URLs.
+
+**Scope decision (developer, 2026-10-30):** no `aria-label`s on the list-row inputs. Screen-reader support isn't a need for these stakeholders, so don't push it again. (The main form fields keep their visible `<label>`s.)
+
+**Edit UX decision (2026-10-30, developer agreed):** a separate edit page, not inline editing. The form mirrors the detail page's layout and order, with labeled real inputs. There's a big obvious Edit button, and Save returns to the recipe page. Warn on leaving with unsaved changes (deferred, see above). The same form serves new and edit. Inline editing was rejected because she'd have to discover it, a stray tap could change a recipe, there's no single Cancel, and a new recipe still needs a form. Small inline fixes could come after launch.
+
+**The developer's main learning gap (their words, 2026-10-31): recognition vs. building.** "Like a Lego kit: I can name every brick in a built kit, but without the manual I can't build it." They read and explain code fine; the gap is *decomposing a problem into steps* by themselves. Still shaky: `( )` vs `{ }` arrow bodies (taught again 2026-10-31 with five console experiments a–e). How to teach from now on:
+- **Plan before code** on every developer turn: they write the steps as plain-English comments first ("copy the array", "swap", "put it back in the form"), Claude reviews the *plan*, and only then do they code. This is the skill to practice, so don't skip it to save time.
+- Use the repeatable checklist for any state change: (1) what is the state now? (2) what should it be after? (3) which tool makes the new value without mutating (`map` = change one, `filter` = remove, `[...a, x]` = add, copy + swap = reorder)? (4) wrap it in `setForm((prev) => ...)`.
+- Rebuild from memory: e.g. the steps list was built **without looking at the ingredient code**, plan first. Keep doing this.
+- Point out real evidence of building when it happens (e.g. moveDown), so they can see progress.
+
+**Mental model that clicked (2026-10-30):** the form is a *draft* in browser memory; only Save sends it to the database (the developer first thought "Add ingredient" saved something).
+
+**Known loose ends in the milestone 4 pages (not bugs today):** `RecipeDetailPage` doesn't reset `error`/`recipe`/`loadingDone` when `id` changes. That's unreachable for now, because navigation always goes through the list, which unmounts the page. It matters once recipes link to each other. The developer's files still have minor style drift (double-quote imports, a few spaces inside `<h1>`/`<h3>`). The `servings &&` trap is already fixed (`!== null`).
+
+**What the developer knows well now:** the three ways RLS says no (`42501` on insert; no error + `[]` on update/delete; `42501` permission denied from a column grant), `23505` unique violations, and the rule "prove the row exists before testing that it's blocked." From milestone 4: the `useEffect` fetch pattern with `ignore`, `null` vs `[]` state, code after `.then` running before the response, one-variable checks for TypeScript narrowing, `.maybeSingle()`, `( )` vs `{ }` arrow bodies, template literals in JSX, and the `0 &&` trap. They learn well from hints plus "how would you test that" (hovering links, Slow 3G throttling). Demos need **exact steps with the expected screen at each step**: in the key demo they saw the bug but didn't recognize it as one until given a step-by-step table and an everyday analogy (coats on numbered chairs = index keys). Name what "wrong" looks like up front.
+
+**Weak spot the developer flagged (2026-10-30): Storage and `Blob`.** They ran the milestone 5 step 1 Storage RLS tests (all passed) but say they don't fully understand that material yet, *especially Blobs*. Make sure they understand it before building on it:
+- What a `Blob` / `File` is (bytes + a MIME `type`), and why `new Blob(['hi'])` uploaded as `application/octet-stream` while the `contentType` option was ignored.
+- MIME types, and the bucket's `allowed_mime_types` (415) vs. RLS (`new row violates…`), both sent as HTTP 400. Read `error.message`, not the status.
+- Storage as rows in `storage.objects`, so file actions map to insert/select/delete policies. Also why the family can *see* a file but can't *delete* it (each command has its own `using`).
+- Plan: re-teach `Blob` hands-on at the start of step 5 (photo upload), where it becomes concrete: `<input type="file">` gives a `File`, and `canvas.toBlob(cb, 'image/jpeg')` makes the upload. Small console experiments first (`new Blob`, `.type`, `.size`, `await blob.text()`), then the real code. Don't treat step 1 as understood just because the tests passed.
 
 **Console-testing tips:** don't sign out to switch accounts (the built-in email sender allows only a few per hour); keep the editor and family in separate browsers. The console shows only the last result of a multi-line paste, so save each result in a variable and `console.log` them, or run lines one at a time. Firefox won't let you redeclare a `const`, so use new names. Double-check which window you're in (the header shows the name).
 

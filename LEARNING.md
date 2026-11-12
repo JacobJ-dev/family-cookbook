@@ -52,6 +52,20 @@ What I've practiced building **Family Cookbook**: a real app for a real user (my
 | Rendering lists: `.map` with `( )` for an implicit return vs `{ }` needing `return`; `key` props; when an index key is safe | both pages | Index keys are fine for read-only lists, not for the editable ones in milestone 5 |
 | JSX details: template literals need backticks **and** `{ }`; `0 && …` renders a literal `0`, so check `!== null` | both pages | |
 
+### Frontend: forms, editable lists and photo upload (milestone 5)
+| Skill | Where in the repo | Who |
+|---|---|---|
+| One form for both "new" and "edit": converting a database row to form state and back (`toForm` / `toRow`) | `RecipeEditPage` | Claude wrote it; **I added** the blank-title check and the error message split |
+| A second route guard nested inside the first (`RequireEditor` inside `RequireAuth`) | `src/auth/RequireEditor.tsx` | Claude wrote it; **I tested** every case |
+| Editing arrays in state without mutating them: `map` to change one item, `filter` to remove, `[...a, x]` to add, copy + swap to reorder | `RecipeEditPage` list editor | **me**. Claude wrote `setIngredient` as a worked example; I wrote add, remove and both moves (moveDown without looking) |
+| Stable `key`s for editable lists (`{ id, text }` rows) instead of index keys | `RecipeEditPage` | **me** |
+| Generalizing two copies of code into shared functions with a parameter (`list: 'ingredients' \| 'steps'`, `prev[list]`) | `RecipeEditPage` | **me**, the steps list built from a plan without looking at the ingredient code |
+| Cleaning input on save: trim and drop blank rows | `listItemToStringArr` | **me** |
+| Resizing images in the browser with a canvas, so every upload is a small JPEG (also strips GPS data) | `src/lib/photos.ts` | Claude wrote it; **I traced it** with `console.log`s (see below) |
+| `File` / `Blob`: bytes plus a MIME `type`; `toBlob(cb, 'image/jpeg')` sets the type the bucket checks | `photos.ts` | Claude wrote it; **I verified** each value in the console |
+| A private Storage bucket with RLS, MIME and size limits, shown through short-lived signed URLs | migration `20261030120000`, `getPhotoUrl` | Claude wrote it; **I ran** all the Storage RLS tests |
+| Ordering steps so a failure always leaves a safe state (upload new → point to it → delete old) | `RecipeEditPage` save | Claude wrote it; **I can explain** why the delete comes last |
+
 ### Professional workflow
 - **Git:** conventional commits (`feat(db): …`, `chore: …`), one commit per milestone, pushed to GitHub
 - **Reading error messages:** used `SQLSTATE 42883` and `At statement: 4` to find a typo
@@ -86,6 +100,18 @@ On the recipe page I added a `loadingDone` flag, but set it on the line *after* 
 **"Tell me about a bug that looked like it worked."**
 My recipe links used `'/recipes/${recipe.id}'` in plain quotes, so every link went to the literal text `${recipe.id}`. The build passed, because it's a valid string, and every link went to the same "Page not found" page, so nothing looked broken yet. I found it by hovering a link and reading the URL. The fix needed both backticks and `{ }` in JSX. Now I check the real output, not just that the code compiles.
 
+**"Tell me about a bug that destroyed data."**
+I added a filter to drop blank ingredient rows on save, but wrote `=== ''` instead of `!== ''`. That kept *only* the blanks, so saving the test "Pot Roast" wiped all its ingredients and steps. I caught it by checking the saved recipe instead of trusting the form. The fix was one character. The lesson: a filter's condition says what to **keep**, and I test against data I can afford to lose.
+
+**"Tell me about a copy-paste bug."**
+When I copied the ingredient list's buttons for the steps list, the steps' "Move down" still checked `form.ingredients.length`. It worked in testing, because both lists happened to be the same length, but it would crash once they differed. I found it reviewing my own code, and it's part of why I then refactored both lists into shared functions with a `list` parameter, so the next fix only has to happen once.
+
+**"Tell me about a design decision (failure handling)."**
+When a recipe photo is replaced, the app uploads the new file, points the recipe at it, and only *then* deletes the old one. If the Wi-Fi drops halfway, the recipe still shows the old photo. In the reverse order, it would point at a deleted file and the photo would be lost for good. The worst case in our order is an unused file left in storage, which we only log. I chose harmless clutter over losing her photo.
+
+**"Tell me about a scope decision."**
+I wanted a warning when you leave the form with unsaved changes. React Router's `useBlocker` needs a different router setup than ours, so I deferred it until after launch to keep the Christmas deadline. The form still works without it. I also chose a separate edit page over inline editing, because a stray tap on a phone shouldn't change a recipe, and there should be one obvious Cancel.
+
 **"Tell me about a design decision."**
 Reactions (favorite / want to try) have no update policy. Every column is part of the primary key, so "changing" a reaction is really delete + insert. Removing the update path removed an entire class of bugs and attack surface. I also removed a default value on `kind`: a missing value should fail loudly, not silently become a favorite.
 
@@ -108,7 +134,6 @@ It has a real user with a real need: a family recipe collection with ratings, so
 ## 4. Coming up (skills each milestone will add)
 | Milestone | New skills |
 |---|---|
-| 5. Editor form | Controlled forms, editing arrays in state, file uploads to cloud storage |
 | 6. Reviews + reactions | Upserts, **optimistic UI updates** |
 | 7. Popularity dashboard | SQL views and aggregation (`avg`, `count`, `group by`) |
 | 8. Deploy | Hosting, environment variables in production, redirect URLs, sharing a live link |
@@ -123,3 +148,4 @@ It has a real user with a real need: a family recipe collection with ratings, so
 | 2026-10-23 | 2: schema | Wrote the reviews + reactions tables and 7 RLS policies, debugged a failed migration | `using` vs `with check`; transactions roll back failed migrations |
 | 2026-10-27 | 3: auth | Wrote the login page and the signed-in header; ran all 13 RLS tests as the editor and a family member, and re-ran two after Claude spotted false passes in my console logs | An empty result can mean "blocked" *or* "nothing there": prove the row exists first |
 | 2026-10-28 | 4: list + detail | Wrote `RecipeListPage` and `RecipeDetailPage` (fetching, loading / error / not-found states, `useParams`, list keys) and ran the browser tests. Fixed the bugs Claude found in review: link quotes, `.then` timing, narrowing, the `0` trap | Code after `.then` runs before the response; a passing build doesn't mean the output is right |
+| 2026-11-13 | 5: editor form | Wrote the ingredient and steps list editor (add, edit, remove, reorder, shared functions, dropping blank rows), fixed my inverted-filter and copy-paste bugs, ran the Storage RLS tests and the full browser test run, and traced the photo upload with `console.log`s | Plan in plain English before coding; a filter keeps what matches; order steps so a failure leaves a safe state; pixels ≠ bytes (a PNG became a *bigger* JPEG) |
