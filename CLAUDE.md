@@ -97,7 +97,7 @@ Later: print/PDF cookbook export, in-app family invites (Edge Function), recipe 
 Update the milestone checklist above as milestones are completed.
 
 ## Where we left off (2026-11-14)
-**Milestone 6 is done** (branch `feat/milestone-6-reviews`, tested as editor + family 2026-11-14). **Next: milestone 7**, starting with the `recipe_stats` view (Claude).
+**Milestone 6 is done** (tested as editor + family, merged to `main` 2026-11-14). **Next: milestone 7**, starting with the `recipe_stats` view (Claude).
 
 How milestone 6 fits together on `RecipeDetailPage`:
 - `StarRating` (developer): controlled, `value` + optional `onChange`; no `onChange` = display-only spans. Its buttons are `type="button"`, which matters now that it sits inside ReviewForm's `<form>`.
