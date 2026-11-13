@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from '../auth/authContext';
 import { getPhotoUrl } from '../lib/photos';
 import ReviewForm from "../components/ReviewForm";
+import ReviewList from '../components/ReviewList';
 
 function RecipeDetailPage() {
     const { id } = useParams();
@@ -13,6 +14,8 @@ function RecipeDetailPage() {
     const [loadingDone, setLoadingDone] = useState(false);
     const { profile } = useAuth();
     const isEditor = profile?.role === 'editor';
+    // Bumped after each review save; ReviewList re-fetches when it changes.
+    const [reviewsVersion, setReviewsVersion] = useState(0);
 
     useEffect(() => {
         if(!id) return;
@@ -78,7 +81,11 @@ function RecipeDetailPage() {
                 ))}
             </ol>
 
-            <ReviewForm recipeId={recipe.id}/>
+            <ReviewForm
+                recipeId={recipe.id}
+                onSaved={() => setReviewsVersion((v) => v + 1)}
+            />
+            <ReviewList recipeId={recipe.id} refreshKey={reviewsVersion} />
             <Link to="/">Return back to Recipe List</Link>
         </div>
     );

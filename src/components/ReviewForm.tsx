@@ -40,9 +40,11 @@ import StarRating from "./StarRating";
 
 type ReviewProps = {
     recipeId: string;
+    // Optional: called after a successful save, so the page can refresh the review list.
+    onSaved?: () => void;
 }
 
-function ReviewForm({recipeId}: ReviewProps){
+function ReviewForm({recipeId, onSaved}: ReviewProps){
     const { profile } = useAuth();
     const [rating, setRating] = useState(0);
     const [comment, setComment] = useState('');
@@ -105,6 +107,7 @@ function ReviewForm({recipeId}: ReviewProps){
         }
 
         setStatus('saved');
+        onSaved?.();
     }
 
     if (status === 'loading') return <p> Loading...</p>;

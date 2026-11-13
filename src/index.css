@@ -153,3 +153,14 @@ main {
     font: inherit;
     color: inherit;
 }
+
+/* Everyone's reviews under a recipe */
+.review-list {
+    list-style: none;
+    padding: 0;
+}
+
+.review-list li {
+    border-top: 1px solid var(--border);
+    padding: 0.75rem 0;
+}
