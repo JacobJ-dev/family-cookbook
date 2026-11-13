@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase";
 import { useEffect, useState } from "react";
 import { useAuth } from '../auth/authContext';
 import { getPhotoUrl } from '../lib/photos';
+import ReviewForm from "../components/ReviewForm";
 
 function RecipeDetailPage() {
     const { id } = useParams();
@@ -76,6 +77,8 @@ function RecipeDetailPage() {
                     <li key={idx}>{step}</li>
                 ))}
             </ol>
+
+            <ReviewForm recipeId={recipe.id}/>
             <Link to="/">Return back to Recipe List</Link>
         </div>
     );
