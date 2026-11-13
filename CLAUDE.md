@@ -36,7 +36,7 @@ An online family cookbook. The site owner's mother-in-law is the **only editor**
 - `npm run gen:types`: regenerate `src/lib/database.types.ts` after any schema change
 
 ## Structure (built + planned)
-Built so far: `src/lib/*`, `src/auth/*` (incl. RequireEditor), `src/pages/` LoginPage + RecipeListPage (`/`) + RecipeDetailPage (`/recipes/:id`) + RecipeEditPage (`/recipes/new`, `/recipes/:id/edit`), `src/components/StarRating.tsx`, and three migrations. Everything else in the tree below (PopularityPage and the other components) is still planned. The pages fetch inside their own `useEffect` (no custom hooks extracted yet).
+Built so far: `src/lib/*`, `src/auth/*` (incl. RequireEditor), `src/pages/` LoginPage + RecipeListPage (`/`) + RecipeDetailPage (`/recipes/:id`) + RecipeEditPage (`/recipes/new`, `/recipes/:id/edit`), `src/components/` StarRating + ReviewForm + ReviewList + ReactionButtons (all on RecipeDetailPage), and three migrations. Still planned: PopularityPage and RecipeCard. Pages and components fetch inside their own `useEffect` (no custom hooks extracted yet).
 ```
 supabase/migrations/*.sql   schema + RLS policies (source of truth for the database)
 src/lib/supabase.ts         Supabase client from VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY
@@ -47,7 +47,7 @@ src/auth/AuthProvider.tsx   session + profile state (kept apart from the hook so
 src/auth/RequireAuth.tsx    layout-route guard: <Route element={<RequireAuth />}> wraps signed-in pages
 src/auth/RequireEditor.tsx  layout-route guard nested inside RequireAuth: non-editors → /
 src/pages/                  LoginPage, RecipeListPage, RecipeDetailPage, RecipeEditPage, PopularityPage
-src/components/             StarRating, RecipeCard, ReviewList, ReviewForm, ReactionButtons
+src/components/             StarRating, ReviewForm, ReviewList, ReactionButtons (built); RecipeCard (planned)
 ```
 
 ## How auth fits together
@@ -87,8 +87,8 @@ src/components/             StarRating, RecipeCard, ReviewList, ReviewForm, Reac
 3. ✅ Auth: Claude wrote the client, auth context and route guard; developer wrote LoginPage + the header and ran the RLS tests
 4. ✅ Recipe list + detail (developer wrote both pages; Claude reviewed)
 5. ✅ Editor form (Claude: form + photo upload; developer: ingredient/step list editing)
-6. Reviews + reactions (developer: StarRating + ReviewForm; Claude: ReactionButtons) ← **next**
-7. Popularity dashboard (Claude) + sort/filter controls (developer)
+6. ✅ Reviews + reactions (developer: StarRating + ReviewForm; Claude: ReviewList + ReactionButtons)
+7. Popularity dashboard (Claude) + sort/filter controls (developer) ← **next**
 8. Deploy to Netlify (Claude, guided). **Must handle the Supabase free-tier pause:** the project was paused after ~2 weeks without use (seen 2026-11-11), so a quiet family site would break until someone restores it in the dashboard. Decide on a keep-alive (e.g. a scheduled ping) or the paid plan before launch.
 9. Design pass (developer, decided 2026-11-13): the developer restyles the whole site the way they want, before family members are invited. Until then, keep styling minimal and functional: give new components a class name and a few plain rules in `index.css` so they're easy to restyle, but don't spend time polishing looks.
 
@@ -96,12 +96,17 @@ Later: print/PDF cookbook export, in-app family invites (Edge Function), recipe 
 
 Update the milestone checklist above as milestones are completed.
 
-## Where we left off (2026-11-13)
-**Milestone 5 is done** (merged to `main` 2026-11-13). **Milestone 6 is in progress on branch `feat/milestone-6-reviews`** (StarRating committed 2026-11-13; merge to `main` when the milestone is done):
-- ✅ `src/components/StarRating.tsx`, **written by the developer** from their own plan (comments at the top of the file). It's a controlled component: props `value` + optional `onChange`, with no state of its own. Fill rule `index < value`; a click sends `index + 1`; no `onChange` = display-only `<span>`s (the developer chose spans over `disabled` buttons). Styled minimally via `.star-rating` in `index.css` (`inherit` on the buttons, so one rule restyles both modes). Lessons along the way: JSX `"3"` vs `{3}`, a `;` inside JSX renders as text, HTML5 entities like `&starF;` don't work in JSX (paste the character), a ternary `? :` vs the optional call `?.()`, and that Vite doesn't type-check (only `npm run build` does).
-- StarRating isn't used on any page yet (the temporary test rows were removed before the commit). `ReviewForm` will be its first real user.
-- Remaining in milestone 6: `ReviewForm` (developer), `ReviewList`, `ReactionButtons` (Claude), testing as editor + family, LEARNING.md, merge. Estimated at about two sessions.
-- **Next: plan `ReviewForm`** (developer). It owns the draft (`rating` + `comment`), loads the user's existing review, and upserts on (recipe_id, user_id). Plan in comments first, as with StarRating.
+## Where we left off (2026-11-14)
+**Milestone 6 is done** (branch `feat/milestone-6-reviews`, tested as editor + family 2026-11-14). **Next: milestone 7**, starting with the `recipe_stats` view (Claude).
+
+How milestone 6 fits together on `RecipeDetailPage`:
+- `StarRating` (developer): controlled, `value` + optional `onChange`; no `onChange` = display-only spans. Its buttons are `type="button"`, which matters now that it sits inside ReviewForm's `<form>`.
+- `ReviewForm` (developer, plan comments at the top of the file; lines marked `[C]` were Claude's): loads the user's review with `maybeSingle`, a `status` union (`loading | idle | saving | saved | error`), and saves with `upsert(…, { onConflict: 'recipe_id,user_id' })` sending `user_id` explicitly. Calls the optional `onSaved` prop after a save.
+- `ReviewList` (Claude): joins `profiles(display_name)` through the `reviews.user_id` foreign key, newest first. The page holds a `reviewsVersion` counter: ReviewForm's `onSaved` bumps it, and ReviewList has it as `refreshKey` in its effect deps.
+- `ReactionButtons` (Claude): insert = on, delete = off; the screen changes only after the database agrees. Labels live in one `LABELS` map (British "Favourite").
+- Open, the developer's call: "Review Saved!" stays on screen after the stars or comment change again. If `profile` were ever null, ReviewForm would sit on "Loading…" (unreachable today, because the guards wait for the profile).
+
+**Teaching note from milestone 6 (2026-11-14):** planning ReviewForm took four rounds of review and the developer got frustrated ("this is frustrating now"). What worked was a **skeleton with headings and blanks** (PROPS / STATE / LOAD / SAVE…), then a **code skeleton with blanks** for the save function. They said "I understand how it works, I don't know what to write for the structure." So give the skeleton in the *first* round, and keep each review round to the few items that block coding.
 
 The database has test recipes (Pot Roast, Lemon Bars, a deliberately bare Pancakes, plus others created testing the form) and their test photos. Delete them all before real use.
 
