@@ -70,7 +70,7 @@ What I've practiced building **Family Cookbook**: a real app for a real user (my
 | Skill | Where in the repo | Who |
 |---|---|---|
 | A **controlled component**: no state of its own, `value` + optional `onChange` props, display-only when `onChange` is missing | `StarRating` | **me**, from my own plan |
-| Planning a component in plain-English comments before coding (props, state, load, save, events) | top of `ReviewForm.tsx` | **me** for most of it; Claude filled the gaps (`onConflict`, an `idle` status, the effect's deps) |
+| Planning a component in plain-English comments before coding (props, state, load, save, events) | `ReviewForm.tsx` in commit `064e063` (removed once built) | **me** for most of it; Claude filled the gaps (`onConflict`, an `idle` status, the effect's deps) |
 | One `status` union (`'loading' \| 'idle' \| 'saving' \| 'saved' \| 'error'`) instead of separate booleans that can contradict each other | `ReviewForm` | **me** |
 | **Upsert** with `onConflict` on a unique pair: insert the first time, update every time after | `ReviewForm` save | **me** (Claude gave the skeleton for the save function); I predicted one row and a changing `updated_at`, and checked it in the database |
 | A form with `onSubmit` + `preventDefault()`, a disabled button while saving, and a validation message | `ReviewForm` | **me**. Using a `<form>` was my idea |

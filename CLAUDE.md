@@ -101,7 +101,7 @@ Update the milestone checklist above as milestones are completed.
 
 How milestone 6 fits together on `RecipeDetailPage`:
 - `StarRating` (developer): controlled, `value` + optional `onChange`; no `onChange` = display-only spans. Its buttons are `type="button"`, which matters now that it sits inside ReviewForm's `<form>`.
-- `ReviewForm` (developer, plan comments at the top of the file; lines marked `[C]` were Claude's): loads the user's review with `maybeSingle`, a `status` union (`loading | idle | saving | saved | error`), and saves with `upsert(…, { onConflict: 'recipe_id,user_id' })` sending `user_id` explicitly. Calls the optional `onSaved` prop after a save.
+- `ReviewForm` (developer; the plan comments were removed after the milestone and are in commit `064e063`, with Claude's lines marked `[C]`): loads the user's review with `maybeSingle`, a `status` union (`loading | idle | saving | saved | error`), and saves with `upsert(…, { onConflict: 'recipe_id,user_id' })` sending `user_id` explicitly. Calls the optional `onSaved` prop after a save.
 - `ReviewList` (Claude): joins `profiles(display_name)` through the `reviews.user_id` foreign key, newest first. The page holds a `reviewsVersion` counter: ReviewForm's `onSaved` bumps it, and ReviewList has it as `refreshKey` in its effect deps.
 - `ReactionButtons` (Claude): insert = on, delete = off; the screen changes only after the database agrees. Labels live in one `LABELS` map (British "Favourite").
 - Open, the developer's call: "Review Saved!" stays on screen after the stars or comment change again. If `profile` were ever null, ReviewForm would sit on "Loading…" (unreachable today, because the guards wait for the profile).
