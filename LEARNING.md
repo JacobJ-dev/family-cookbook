@@ -137,6 +137,7 @@ It has a real user with a real need: a family recipe collection with ratings, so
 | 6. Reviews + reactions | Upserts, **optimistic UI updates** |
 | 7. Popularity dashboard | SQL views and aggregation (`avg`, `count`, `group by`) |
 | 8. Deploy | Hosting, environment variables in production, redirect URLs, sharing a live link |
+| 9. Design pass | Designing my own look: CSS layout, theming with CSS variables, responsive design for phones |
 | Later | Automated tests (Vitest), print CSS / PDF export, serverless functions |
 
 ---

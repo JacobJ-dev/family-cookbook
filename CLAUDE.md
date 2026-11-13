@@ -12,6 +12,7 @@ An online family cookbook. The site owner's mother-in-law is the **only editor**
 - When a step is marked as the developer's turn: **don't write it for them**. Give the goal, hints and relevant docs, then review their code and explain any issues.
 - The developer is new to SQL migrations (learned RLS `using` vs `with check` in milestone 2). Explain new concepts with concrete examples before asking them to write them.
 - Code style (developer's preference): **4-space indentation and semicolons** in TS/TSX/CSS (see `.editorconfig`). There's no formatter yet, so match it by hand. `src/lib/database.types.ts` is generated, so leave its formatting alone. Applied migrations keep their original 2-space style. JSON/MD/TOML/YAML use 2 spaces. Line endings are LF (`.gitattributes` normalizes them; the developer is on Windows, so git's "CRLF will be replaced" warnings are expected).
+- **Whitespace nits: just fix them** (developer's permission, 2026-11-13): trailing spaces, whitespace-only lines, stray or doubled blank lines, a missing final newline, and the spacing inside comments, even in the developer's own files. Mention briefly what was tidied, but don't make it a review item or ask first. Anything beyond whitespace (quotes, `){`, naming, wording) still goes to the developer as a review note. `.editorconfig` trims trailing whitespace on save if their editor has EditorConfig support.
 - oxlint enforces `react/rules-of-hooks` and `react/only-export-components`. The second one is why hooks/contexts live in separate files from components (e.g. `authContext.ts` vs `AuthProvider.tsx`).
 - Prefer plain, readable code over clever abstractions. Don't add libraries without discussing it first.
 - Commit at the end of each milestone, with conventional-commit messages (`feat:`, `fix:`, `chore:`).
@@ -88,13 +89,18 @@ src/components/             StarRating, RecipeCard, ReviewList, ReviewForm, Reac
 6. Reviews + reactions (developer: StarRating + ReviewForm; Claude: ReactionButtons) ← **next**
 7. Popularity dashboard (Claude) + sort/filter controls (developer)
 8. Deploy to Netlify (Claude, guided). **Must handle the Supabase free-tier pause:** the project was paused after ~2 weeks without use (seen 2026-11-11), so a quiet family site would break until someone restores it in the dashboard. Decide on a keep-alive (e.g. a scheduled ping) or the paid plan before launch.
+9. Design pass (developer, decided 2026-11-13): the developer restyles the whole site the way they want, before family members are invited. Until then, keep styling minimal and functional: give new components a class name and a few plain rules in `index.css` so they're easy to restyle, but don't spend time polishing looks.
 
 Later: print/PDF cookbook export, in-app family invites (Edge Function), recipe versions.
 
 Update the milestone checklist above as milestones are completed.
 
 ## Where we left off (2026-11-13)
-**Milestone 5 is done** (merged to `main` 2026-11-13). **Next: milestone 6**, starting with the developer's `StarRating` (plan in plain-English comments first).
+**Milestone 5 is done** (merged to `main` 2026-11-13). **Milestone 6 is in progress on branch `feat/milestone-6-reviews`** (StarRating committed 2026-11-13; merge to `main` when the milestone is done):
+- ✅ `src/components/StarRating.tsx`, **written by the developer** from their own plan (comments at the top of the file). It's a controlled component: props `value` + optional `onChange`, with no state of its own. Fill rule `index < value`; a click sends `index + 1`; no `onChange` = display-only `<span>`s (the developer chose spans over `disabled` buttons). Styled minimally via `.star-rating` in `index.css` (`inherit` on the buttons, so one rule restyles both modes). Lessons along the way: JSX `"3"` vs `{3}`, a `;` inside JSX renders as text, HTML5 entities like `&starF;` don't work in JSX (paste the character), a ternary `? :` vs the optional call `?.()`, and that Vite doesn't type-check (only `npm run build` does).
+- StarRating isn't used on any page yet (the temporary test rows were removed before the commit). `ReviewForm` will be its first real user.
+- Remaining in milestone 6: `ReviewForm` (developer), `ReviewList`, `ReactionButtons` (Claude), testing as editor + family, LEARNING.md, merge. Estimated at about two sessions.
+- **Next: plan `ReviewForm`** (developer). It owns the draft (`rating` + `comment`), loads the user's existing review, and upserts on (recipe_id, user_id). Plan in comments first, as with StarRating.
 
 The database has test recipes (Pot Roast, Lemon Bars, a deliberately bare Pancakes, plus others created testing the form) and their test photos. Delete them all before real use.
 

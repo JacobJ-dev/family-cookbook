@@ -138,3 +138,18 @@ main {
     margin: 1rem 0;
     border-radius: 8px;
 }
+
+/* Styling for the rating star element */
+.star-rating {
+    font-size: 1.6rem;
+    color: var(--accent);
+}
+
+.star-rating button {
+    background: none;
+    border: none;
+    padding: 0px;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+}
