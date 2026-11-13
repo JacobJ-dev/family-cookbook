@@ -6,6 +6,7 @@ import { useAuth } from '../auth/authContext';
 import { getPhotoUrl } from '../lib/photos';
 import ReviewForm from "../components/ReviewForm";
 import ReviewList from '../components/ReviewList';
+import ReactionButtons from '../components/ReactionButtons';
 
 function RecipeDetailPage() {
     const { id } = useParams();
@@ -58,6 +59,7 @@ function RecipeDetailPage() {
             <h1> {recipe.title} </h1>
             {photoUrl && <img src={photoUrl} alt={recipe.title} className="recipe-photo" />}
             {isEditor && <Link to={`/recipes/${recipe.id}/edit`} className="button">Edit recipe</Link>}
+            <ReactionButtons recipeId={recipe.id} />
             {recipe.description && <p>{recipe.description}</p>}
             {recipe.story && <p>{recipe.story}</p>}
 

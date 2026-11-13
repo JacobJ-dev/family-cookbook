@@ -164,3 +164,25 @@ main {
     border-top: 1px solid var(--border);
     padding: 0.75rem 0;
 }
+
+/* Favorite / Want to try toggles. aria-pressed="true" = this one is on. */
+.reaction-buttons {
+    display: flex;
+    gap: 0.5rem;
+    margin: 0.75rem 0;
+}
+
+.reaction-buttons button {
+    font: inherit;
+    padding: 0.3rem 0.8rem;
+    border: 1px solid var(--accent);
+    border-radius: 999px;
+    background: none;
+    color: var(--accent);
+    cursor: pointer;
+}
+
+.reaction-buttons button[aria-pressed='true'] {
+    background: var(--accent);
+    color: var(--bg);
+}
