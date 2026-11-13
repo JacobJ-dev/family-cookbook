@@ -4,6 +4,9 @@ import { supabase } from "../lib/supabase";
 import { useEffect, useState } from "react";
 import { useAuth } from '../auth/authContext';
 import { getPhotoUrl } from '../lib/photos';
+import ReviewForm from "../components/ReviewForm";
+import ReviewList from '../components/ReviewList';
+import ReactionButtons from '../components/ReactionButtons';
 
 function RecipeDetailPage() {
     const { id } = useParams();
@@ -12,6 +15,8 @@ function RecipeDetailPage() {
     const [loadingDone, setLoadingDone] = useState(false);
     const { profile } = useAuth();
     const isEditor = profile?.role === 'editor';
+    // Bumped after each review save; ReviewList re-fetches when it changes.
+    const [reviewsVersion, setReviewsVersion] = useState(0);
 
     useEffect(() => {
         if(!id) return;
@@ -54,6 +59,7 @@ function RecipeDetailPage() {
             <h1> {recipe.title} </h1>
             {photoUrl && <img src={photoUrl} alt={recipe.title} className="recipe-photo" />}
             {isEditor && <Link to={`/recipes/${recipe.id}/edit`} className="button">Edit recipe</Link>}
+            <ReactionButtons recipeId={recipe.id} />
             {recipe.description && <p>{recipe.description}</p>}
             {recipe.story && <p>{recipe.story}</p>}
 
@@ -76,6 +82,12 @@ function RecipeDetailPage() {
                     <li key={idx}>{step}</li>
                 ))}
             </ol>
+
+            <ReviewForm
+                recipeId={recipe.id}
+                onSaved={() => setReviewsVersion((v) => v + 1)}
+            />
+            <ReviewList recipeId={recipe.id} refreshKey={reviewsVersion} />
             <Link to="/">Return back to Recipe List</Link>
         </div>
     );

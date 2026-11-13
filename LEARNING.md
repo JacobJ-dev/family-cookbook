@@ -66,6 +66,19 @@ What I've practiced building **Family Cookbook**: a real app for a real user (my
 | A private Storage bucket with RLS, MIME and size limits, shown through short-lived signed URLs | migration `20261030120000`, `getPhotoUrl` | Claude wrote it; **I ran** all the Storage RLS tests |
 | Ordering steps so a failure always leaves a safe state (upload new → point to it → delete old) | `RecipeEditPage` save | Claude wrote it; **I can explain** why the delete comes last |
 
+### Frontend: reviews and reactions (milestone 6)
+| Skill | Where in the repo | Who |
+|---|---|---|
+| A **controlled component**: no state of its own, `value` + optional `onChange` props, display-only when `onChange` is missing | `StarRating` | **me**, from my own plan |
+| Planning a component in plain-English comments before coding (props, state, load, save, events) | `ReviewForm.tsx` in commit `064e063` (removed once built) | **me** for most of it; Claude filled the gaps (`onConflict`, an `idle` status, the effect's deps) |
+| One `status` union (`'loading' \| 'idle' \| 'saving' \| 'saved' \| 'error'`) instead of separate booleans that can contradict each other | `ReviewForm` | **me** |
+| **Upsert** with `onConflict` on a unique pair: insert the first time, update every time after | `ReviewForm` save | **me** (Claude gave the skeleton for the save function); I predicted one row and a changing `updated_at`, and checked it in the database |
+| A form with `onSubmit` + `preventDefault()`, a disabled button while saving, and a validation message | `ReviewForm` | **me**. Using a `<form>` was my idea |
+| `useEffect` dependency arrays: every outside value the effect reads goes in the array | `ReviewForm` load | **me**, after a refresher |
+| A **join** in a select (`profiles(display_name)`) that follows a foreign key and nests the related row | `ReviewList` | Claude wrote it; I can explain it |
+| Refreshing a sibling component: the parent holds a counter, one child bumps it (`onSaved`), the other has it in its deps | `RecipeDetailPage` | Claude wrote it; I can explain it |
+| Toggles as insert/delete only (no update), updating the screen only after the database agrees | `ReactionButtons` | Claude wrote it, on top of my no-update-policy design from milestone 2 |
+
 ### Professional workflow
 - **Git:** conventional commits (`feat(db): …`, `chore: …`), one commit per milestone, pushed to GitHub
 - **Reading error messages:** used `SQLSTATE 42883` and `At statement: 4` to find a typo
@@ -112,6 +125,12 @@ When a recipe photo is replaced, the app uploads the new file, points the recipe
 **"Tell me about a scope decision."**
 I wanted a warning when you leave the form with unsaved changes. React Router's `useBlocker` needs a different router setup than ours, so I deferred it until after launch to keep the Christmas deadline. The form still works without it. I also chose a separate edit page over inline editing, because a stray tap on a phone shouldn't change a recipe, and there should be one obvious Cancel.
 
+**"Tell me about a small decision that prevented a bug later."**
+When I built the star rating, I gave each star button `type="button"`. A week later the stars went inside a `<form>`, where a button with no type defaults to *submit*. Without that one attribute, every star click would have saved a half-finished review. I didn't know at the time that it would matter; it's why I now set `type` on every button.
+
+**"Tell me about a bug caught before it shipped."**
+My review form's `useEffect` had an empty dependency array, so it loaded the review only once. If the page ever switched recipes without unmounting (planned, once recipes link to each other), the form would keep the old recipe's stars and comment, and Save would write them onto the new recipe. The fix was listing every outside value the effect reads (`[recipeId, profile?.id]`). Review also caught that the form stayed on "Loading…" forever for anyone who hadn't reviewed yet, because I only set `idle` inside `if (data)`, and that the `<label>` around the stars made a click on the word "Rating" set 1 star.
+
 **"Tell me about a design decision."**
 Reactions (favorite / want to try) have no update policy. Every column is part of the primary key, so "changing" a reaction is really delete + insert. Removing the update path removed an entire class of bugs and attack surface. I also removed a default value on `kind`: a missing value should fail loudly, not silently become a favorite.
 
@@ -134,9 +153,9 @@ It has a real user with a real need: a family recipe collection with ratings, so
 ## 4. Coming up (skills each milestone will add)
 | Milestone | New skills |
 |---|---|
-| 6. Reviews + reactions | Upserts, **optimistic UI updates** |
 | 7. Popularity dashboard | SQL views and aggregation (`avg`, `count`, `group by`) |
 | 8. Deploy | Hosting, environment variables in production, redirect URLs, sharing a live link |
+| 9. Design pass | Designing my own look: CSS layout, theming with CSS variables, responsive design for phones |
 | Later | Automated tests (Vitest), print CSS / PDF export, serverless functions |
 
 ---
@@ -149,3 +168,4 @@ It has a real user with a real need: a family recipe collection with ratings, so
 | 2026-10-27 | 3: auth | Wrote the login page and the signed-in header; ran all 13 RLS tests as the editor and a family member, and re-ran two after Claude spotted false passes in my console logs | An empty result can mean "blocked" *or* "nothing there": prove the row exists first |
 | 2026-10-28 | 4: list + detail | Wrote `RecipeListPage` and `RecipeDetailPage` (fetching, loading / error / not-found states, `useParams`, list keys) and ran the browser tests. Fixed the bugs Claude found in review: link quotes, `.then` timing, narrowing, the `0` trap | Code after `.then` runs before the response; a passing build doesn't mean the output is right |
 | 2026-11-13 | 5: editor form | Wrote the ingredient and steps list editor (add, edit, remove, reorder, shared functions, dropping blank rows), fixed my inverted-filter and copy-paste bugs, ran the Storage RLS tests and the full browser test run, and traced the photo upload with `console.log`s | Plan in plain English before coding; a filter keeps what matches; order steps so a failure leaves a safe state; pixels ≠ bytes (a PNG became a *bigger* JPEG) |
+| 2026-11-14 | 6: reviews + reactions | Planned and wrote `StarRating` and `ReviewForm` (load with `maybeSingle`, upsert on save, status union, form submit), fixed the deps-array, stuck-loading and label bugs from review, tested as editor and family, and checked my upsert prediction in the database | Plan first; every outside value an effect reads goes in its deps; set `type="button"` on buttons inside forms |

@@ -12,7 +12,9 @@ An online family cookbook. The site owner's mother-in-law is the **only editor**
 - When a step is marked as the developer's turn: **don't write it for them**. Give the goal, hints and relevant docs, then review their code and explain any issues.
 - The developer is new to SQL migrations (learned RLS `using` vs `with check` in milestone 2). Explain new concepts with concrete examples before asking them to write them.
 - Code style (developer's preference): **4-space indentation and semicolons** in TS/TSX/CSS (see `.editorconfig`). There's no formatter yet, so match it by hand. `src/lib/database.types.ts` is generated, so leave its formatting alone. Applied migrations keep their original 2-space style. JSON/MD/TOML/YAML use 2 spaces. Line endings are LF (`.gitattributes` normalizes them; the developer is on Windows, so git's "CRLF will be replaced" warnings are expected).
+- **Whitespace nits: just fix them** (developer's permission, 2026-11-13): trailing spaces, whitespace-only lines, stray or doubled blank lines, a missing final newline, and the spacing inside comments, even in the developer's own files. Mention briefly what was tidied, but don't make it a review item or ask first. Anything beyond whitespace (quotes, `){`, naming, wording) still goes to the developer as a review note. `.editorconfig` trims trailing whitespace on save if their editor has EditorConfig support.
 - oxlint enforces `react/rules-of-hooks` and `react/only-export-components`. The second one is why hooks/contexts live in separate files from components (e.g. `authContext.ts` vs `AuthProvider.tsx`).
+- **User-facing text uses British spelling** (developer's request, 2026-11-14): "Favourite", "colour", etc. Code, identifiers and database values stay American (`favorite` in the `reactions.kind` check constraint), so only change what users see.
 - Prefer plain, readable code over clever abstractions. Don't add libraries without discussing it first.
 - Commit at the end of each milestone, with conventional-commit messages (`feat:`, `fix:`, `chore:`).
 - The developer is using this project to build a SWE portfolio. At the end of each milestone, update `LEARNING.md`: add the skills practiced (marking honestly what they wrote vs. what Claude wrote), any good interview story (bugs caught, design decisions), and a log row.
@@ -30,11 +32,11 @@ An online family cookbook. The site owner's mother-in-law is the **only editor**
 - `npm run lint`: oxlint. Must be clean.
 - `npm run preview`: serve the built `dist/` locally
 - No test runner yet. RLS is verified by hand: sign in, then run queries with the dev-only `window.supabase` in the F12 console.
-- `npx supabase db push`: apply new files in `supabase/migrations/` to the linked project (the developer has run `login` + `link`)
+- `npx supabase db push`: apply new files in `supabase/migrations/` to the linked project (the developer has run `login` + `link`). The Supabase CLI is a devDependency, so `npx supabase` and `gen:types` use the project's pinned copy; no global install needed.
 - `npm run gen:types`: regenerate `src/lib/database.types.ts` after any schema change
 
-## Planned structure
-Built so far: `src/lib/*`, `src/auth/*` (incl. RequireEditor), `src/pages/` LoginPage + RecipeListPage (`/`) + RecipeDetailPage (`/recipes/:id`) + RecipeEditPage (`/recipes/new`, `/recipes/:id/edit`), and three migrations. The rest is planned. The pages fetch inside their own `useEffect` (no custom hooks extracted yet).
+## Structure (built + planned)
+Built so far: `src/lib/*`, `src/auth/*` (incl. RequireEditor), `src/pages/` LoginPage + RecipeListPage (`/`) + RecipeDetailPage (`/recipes/:id`) + RecipeEditPage (`/recipes/new`, `/recipes/:id/edit`), `src/components/` StarRating + ReviewForm + ReviewList + ReactionButtons (all on RecipeDetailPage), and three migrations. Still planned: PopularityPage and RecipeCard. Pages and components fetch inside their own `useEffect` (no custom hooks extracted yet).
 ```
 supabase/migrations/*.sql   schema + RLS policies (source of truth for the database)
 src/lib/supabase.ts         Supabase client from VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY
@@ -45,7 +47,7 @@ src/auth/AuthProvider.tsx   session + profile state (kept apart from the hook so
 src/auth/RequireAuth.tsx    layout-route guard: <Route element={<RequireAuth />}> wraps signed-in pages
 src/auth/RequireEditor.tsx  layout-route guard nested inside RequireAuth: non-editors → /
 src/pages/                  LoginPage, RecipeListPage, RecipeDetailPage, RecipeEditPage, PopularityPage
-src/components/             StarRating, RecipeCard, ReviewList, ReviewForm, ReactionButtons
+src/components/             StarRating, ReviewForm, ReviewList, ReactionButtons (built); RecipeCard (planned)
 ```
 
 ## How auth fits together
@@ -85,16 +87,26 @@ src/components/             StarRating, RecipeCard, ReviewList, ReviewForm, Reac
 3. ✅ Auth: Claude wrote the client, auth context and route guard; developer wrote LoginPage + the header and ran the RLS tests
 4. ✅ Recipe list + detail (developer wrote both pages; Claude reviewed)
 5. ✅ Editor form (Claude: form + photo upload; developer: ingredient/step list editing)
-6. Reviews + reactions (developer: StarRating + ReviewForm; Claude: ReactionButtons) ← **next**
-7. Popularity dashboard (Claude) + sort/filter controls (developer)
+6. ✅ Reviews + reactions (developer: StarRating + ReviewForm; Claude: ReviewList + ReactionButtons)
+7. Popularity dashboard (Claude) + sort/filter controls (developer) ← **next**
 8. Deploy to Netlify (Claude, guided). **Must handle the Supabase free-tier pause:** the project was paused after ~2 weeks without use (seen 2026-11-11), so a quiet family site would break until someone restores it in the dashboard. Decide on a keep-alive (e.g. a scheduled ping) or the paid plan before launch.
+9. Design pass (developer, decided 2026-11-13): the developer restyles the whole site the way they want, before family members are invited. Until then, keep styling minimal and functional: give new components a class name and a few plain rules in `index.css` so they're easy to restyle, but don't spend time polishing looks.
 
 Later: print/PDF cookbook export, in-app family invites (Edge Function), recipe versions.
 
 Update the milestone checklist above as milestones are completed.
 
-## Where we left off (2026-11-13)
-**Milestone 5 is done** (merged to `main` 2026-11-13). **Next: milestone 6**, starting with the developer's `StarRating` (plan in plain-English comments first).
+## Where we left off (2026-11-14)
+**Milestone 6 is done** (branch `feat/milestone-6-reviews`, tested as editor + family 2026-11-14). **Next: milestone 7**, starting with the `recipe_stats` view (Claude).
+
+How milestone 6 fits together on `RecipeDetailPage`:
+- `StarRating` (developer): controlled, `value` + optional `onChange`; no `onChange` = display-only spans. Its buttons are `type="button"`, which matters now that it sits inside ReviewForm's `<form>`.
+- `ReviewForm` (developer; the plan comments were removed after the milestone and are in commit `064e063`, with Claude's lines marked `[C]`): loads the user's review with `maybeSingle`, a `status` union (`loading | idle | saving | saved | error`), and saves with `upsert(…, { onConflict: 'recipe_id,user_id' })` sending `user_id` explicitly. Calls the optional `onSaved` prop after a save.
+- `ReviewList` (Claude): joins `profiles(display_name)` through the `reviews.user_id` foreign key, newest first. The page holds a `reviewsVersion` counter: ReviewForm's `onSaved` bumps it, and ReviewList has it as `refreshKey` in its effect deps.
+- `ReactionButtons` (Claude): insert = on, delete = off; the screen changes only after the database agrees. Labels live in one `LABELS` map (British "Favourite").
+- Open, the developer's call: "Review Saved!" stays on screen after the stars or comment change again. If `profile` were ever null, ReviewForm would sit on "Loading…" (unreachable today, because the guards wait for the profile).
+
+**Teaching note from milestone 6 (2026-11-14):** planning ReviewForm took four rounds of review and the developer got frustrated ("this is frustrating now"). What worked was a **skeleton with headings and blanks** (PROPS / STATE / LOAD / SAVE…), then a **code skeleton with blanks** for the save function. They said "I understand how it works, I don't know what to write for the structure." The developer's takeaway (2026-11-14): the comment structure is good, but **discuss first** before handing over a format to fill in. See "How to run planning" below.
 
 The database has test recipes (Pot Roast, Lemon Bars, a deliberately bare Pancakes, plus others created testing the form) and their test photos. Delete them all before real use.
 
@@ -112,6 +124,11 @@ Harmless console noise: Firefox rejects Cloudflare's `__cf_bm` cookie on the sig
 
 **The developer's main learning gap (their words, 2026-10-31): recognition vs. building.** "Like a Lego kit: I can name every brick in a built kit, but without the manual I can't build it." They read and explain code fine; the gap is *decomposing a problem into steps* by themselves. Still shaky: `( )` vs `{ }` arrow bodies (taught again 2026-10-31 with five console experiments a–e). How to teach from now on:
 - **Plan before code** on every developer turn: they write the steps as plain-English comments first ("copy the array", "swap", "put it back in the form"), Claude reviews the *plan*, and only then do they code. This is the skill to practice, so don't skip it to save time.
+- **How to run planning (the developer's own words and request, 2026-11-14).** "Like most juniors I just want to get in and start coding." That urge causes friction, but planning first makes the work easier and faster, and they struggle with coding assessments in job interviews today, so this skill is what gets them hired. So:
+  1. **Make sure they plan, and think it through themselves.** Don't let a developer turn start with code, even when they push to skip ahead. Don't plan for them.
+  2. **Discuss first.** Before giving any template, ask open questions and let them talk it through: "What does this component need to know?", "What could go wrong when it loads?", "What happens the first time vs. the second time?" They should spot the issues and solutions themselves.
+  3. **The comment-plan structure** (PROPS / STATE / LOAD / SAVE / EVENTS / PREDICTION) is good, but it comes *after* that discussion: as a way to write down what they worked out, or as a fallback when they're stuck. Don't hand over the whole format to fill in up front.
+  4. Keep each review round to the few things that block coding, so planning doesn't drag into many rounds (milestone 6 took four and got frustrating).
 - Use the repeatable checklist for any state change: (1) what is the state now? (2) what should it be after? (3) which tool makes the new value without mutating (`map` = change one, `filter` = remove, `[...a, x]` = add, copy + swap = reorder)? (4) wrap it in `setForm((prev) => ...)`.
 - Rebuild from memory: e.g. the steps list was built **without looking at the ingredient code**, plan first. Keep doing this.
 - Point out real evidence of building when it happens (e.g. moveDown), so they can see progress.
