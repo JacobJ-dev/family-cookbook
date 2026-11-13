@@ -31,11 +31,11 @@ An online family cookbook. The site owner's mother-in-law is the **only editor**
 - `npm run lint`: oxlint. Must be clean.
 - `npm run preview`: serve the built `dist/` locally
 - No test runner yet. RLS is verified by hand: sign in, then run queries with the dev-only `window.supabase` in the F12 console.
-- `npx supabase db push`: apply new files in `supabase/migrations/` to the linked project (the developer has run `login` + `link`)
+- `npx supabase db push`: apply new files in `supabase/migrations/` to the linked project (the developer has run `login` + `link`). The Supabase CLI is a devDependency, so `npx supabase` and `gen:types` use the project's pinned copy; no global install needed.
 - `npm run gen:types`: regenerate `src/lib/database.types.ts` after any schema change
 
-## Planned structure
-Built so far: `src/lib/*`, `src/auth/*` (incl. RequireEditor), `src/pages/` LoginPage + RecipeListPage (`/`) + RecipeDetailPage (`/recipes/:id`) + RecipeEditPage (`/recipes/new`, `/recipes/:id/edit`), and three migrations. The rest is planned. The pages fetch inside their own `useEffect` (no custom hooks extracted yet).
+## Structure (built + planned)
+Built so far: `src/lib/*`, `src/auth/*` (incl. RequireEditor), `src/pages/` LoginPage + RecipeListPage (`/`) + RecipeDetailPage (`/recipes/:id`) + RecipeEditPage (`/recipes/new`, `/recipes/:id/edit`), `src/components/StarRating.tsx`, and three migrations. Everything else in the tree below (PopularityPage and the other components) is still planned. The pages fetch inside their own `useEffect` (no custom hooks extracted yet).
 ```
 supabase/migrations/*.sql   schema + RLS policies (source of truth for the database)
 src/lib/supabase.ts         Supabase client from VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY
