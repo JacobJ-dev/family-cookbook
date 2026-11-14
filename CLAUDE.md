@@ -46,9 +46,15 @@ src/auth/authContext.ts     AuthContext + useAuth() hook + Profile type
 src/auth/AuthProvider.tsx   session + profile state (kept apart from the hook so fast refresh works)
 src/auth/RequireAuth.tsx    layout-route guard: <Route element={<RequireAuth />}> wraps signed-in pages
 src/auth/RequireEditor.tsx  layout-route guard nested inside RequireAuth: non-editors → /
-src/pages/                  LoginPage, RecipeListPage, RecipeDetailPage, RecipeEditPage, PopularityPage
+src/pages/                  LoginPage, RecipeListPage, RecipeDetailPage, RecipeEditPage (built); PopularityPage (planned)
 src/components/             StarRating, ReviewForm, ReviewList, ReactionButtons (built); RecipeCard (planned)
 ```
+
+### How the recipe detail page fits together (milestone 6)
+- `StarRating`: controlled, `value` + optional `onChange`; no `onChange` = display-only spans. Its buttons are `type="button"`, which matters because it sits inside ReviewForm's `<form>`.
+- `ReviewForm`: loads the user's review with `maybeSingle`, tracks one `status` union (`loading | idle | saving | saved | error`), and saves with `upsert(…, { onConflict: 'recipe_id,user_id' })` sending `user_id` explicitly. Calls the optional `onSaved` prop after a save.
+- `ReviewList`: joins `profiles(display_name)` through the `reviews.user_id` foreign key, newest first. The page holds a `reviewsVersion` counter: ReviewForm's `onSaved` bumps it, and ReviewList has it as `refreshKey` in its effect deps.
+- `ReactionButtons`: insert = on, delete = off; the screen changes only after the database agrees. Labels live in one `LABELS` map.
 
 ## How auth fits together
 - `main.tsx` nests `BrowserRouter > AuthProvider > App`, so any component can call `useAuth()` → `{ session, profile, loading, signOut }`.
@@ -92,60 +98,51 @@ src/components/             StarRating, ReviewForm, ReviewList, ReactionButtons 
 8. Deploy to Netlify (Claude, guided). **Must handle the Supabase free-tier pause:** the project was paused after ~2 weeks without use (seen 2026-11-11), so a quiet family site would break until someone restores it in the dashboard. Decide on a keep-alive (e.g. a scheduled ping) or the paid plan before launch.
 9. Design pass (developer, decided 2026-11-13): the developer restyles the whole site the way they want, before family members are invited. Until then, keep styling minimal and functional: give new components a class name and a few plain rules in `index.css` so they're easy to restyle, but don't spend time polishing looks.
 
-Later: print/PDF cookbook export, in-app family invites (Edge Function), recipe versions.
+**Deferred until after launch** (from milestone 5):
+- The "unsaved changes" warning on the edit page. react-router's `useBlocker` needs a *data router* (`createBrowserRouter`), and we use `<BrowserRouter>`.
+- A `<ListEditor>` component. Today the ingredient and step lists share functions in `RecipeEditPage` (`setItem/addItem/removeItem/moveUp/moveDown(list, ...)` with `list: 'ingredients' | 'steps'`).
+
+Later: print/PDF cookbook export, in-app family invites (Edge Function), recipe versions, small inline fixes on the recipe page.
 
 Update the milestone checklist above as milestones are completed.
 
 ## Where we left off (2026-11-14)
-**Milestone 6 is done** (tested as editor + family, merged to `main` 2026-11-14). **Next: milestone 7**, starting with the `recipe_stats` view (Claude).
+**Milestone 6 is done** (tested as editor + family, merged to `main`). **Next: milestone 7**, starting with the `recipe_stats` view (Claude).
 
-How milestone 6 fits together on `RecipeDetailPage`:
-- `StarRating` (developer): controlled, `value` + optional `onChange`; no `onChange` = display-only spans. Its buttons are `type="button"`, which matters now that it sits inside ReviewForm's `<form>`.
-- `ReviewForm` (developer; the plan comments were removed after the milestone and are in commit `064e063`, with Claude's lines marked `[C]`): loads the user's review with `maybeSingle`, a `status` union (`loading | idle | saving | saved | error`), and saves with `upsert(…, { onConflict: 'recipe_id,user_id' })` sending `user_id` explicitly. Calls the optional `onSaved` prop after a save.
-- `ReviewList` (Claude): joins `profiles(display_name)` through the `reviews.user_id` foreign key, newest first. The page holds a `reviewsVersion` counter: ReviewForm's `onSaved` bumps it, and ReviewList has it as `refreshKey` in its effect deps.
-- `ReactionButtons` (Claude): insert = on, delete = off; the screen changes only after the database agrees. Labels live in one `LABELS` map (British "Favourite").
-- Open, the developer's call: "Review Saved!" stays on screen after the stars or comment change again. If `profile` were ever null, ReviewForm would sit on "Loading…" (unreachable today, because the guards wait for the profile).
+Open items:
+- The database has test recipes (Pot Roast, Lemon Bars, a deliberately bare Pancakes, plus others from testing the form) and their test photos. Delete them all before real use.
+- The developer's call: "Review Saved!" stays on screen after the stars or comment change again. If `profile` were ever null, ReviewForm would sit on "Loading…" (unreachable today, because the guards wait for the profile).
+- `RecipeDetailPage` doesn't reset `error`/`recipe`/`loadingDone` when `id` changes. Unreachable today, because navigation always goes through the list, which unmounts the page; it matters once recipes link to each other.
+- The developer's files have minor style drift (double-quote imports, a few spaces inside `<h1>`/`<h3>`). That's a review note for them, not a whitespace fix.
 
-**Teaching note from milestone 6 (2026-11-14):** planning ReviewForm took four rounds of review and the developer got frustrated ("this is frustrating now"). What worked was a **skeleton with headings and blanks** (PROPS / STATE / LOAD / SAVE…), then a **code skeleton with blanks** for the save function. They said "I understand how it works, I don't know what to write for the structure." The developer's takeaway (2026-11-14): the comment structure is good, but **discuss first** before handing over a format to fill in. See "How to run planning" below.
+## Product decisions (don't re-open)
+- **Edit UX (2026-10-30):** a separate edit page, not inline editing. The form mirrors the detail page's layout and order, with labelled real inputs, a big obvious Edit button, and Save returning to the recipe page. The same form serves new and edit. Inline editing was rejected because she'd have to discover it, a stray tap could change a recipe, there's no single Cancel, and a new recipe still needs a form.
+- **No `aria-label`s on the list-row inputs (2026-10-30).** Screen-reader support isn't a need for these stakeholders, so don't push it again. The main form fields keep their visible `<label>`s.
 
-The database has test recipes (Pot Roast, Lemon Bars, a deliberately bare Pancakes, plus others created testing the form) and their test photos. Delete them all before real use.
+## How to teach
+History behind these rules (what failed, what worked, and when) is in `TEACHING-NOTES.md`.
 
-**Deferred from milestone 5 until after launch:**
-- The "unsaved changes" warning. react-router's `useBlocker` needs a *data router* (`createBrowserRouter`), and we use `<BrowserRouter>`.
-- A `<ListEditor>` component. Today the ingredient and step lists share functions in `RecipeEditPage` (`setItem/addItem/removeItem/moveUp/moveDown(list, ...)` with `list: 'ingredients' | 'steps'`).
+**The developer's main gap is recognition vs. building.** They read and explain code fine; the gap is *decomposing a problem into steps* by themselves. They struggle with coding assessments in job interviews today, so practising this is what gets them hired.
 
-**Photo upload walkthrough (landed 2026-11-13).** A written, table-heavy version failed on 2026-11-11. What worked: temporary `console.log`s, predictions before each run, one piece at a time. The developer saw the picker's `File` (`type`, `size`), the line where `toBlob`'s 2nd argument relabels it `image/jpeg`, a 57 KB PNG becoming a *116 KB* JPEG (pixels vs bytes), and the `<recipeId>/<random>.jpg` path. They also explained why the old photo is deleted *after* the new one is in place. The analogy that worked: a `File`/`Blob` is a **sealed parcel** with a label (`type`, `size`). The canvas unpacks it, and `toBlob` packs a new parcel with a new label. Reuse it.
+**How to run planning** (the developer's own request, 2026-11-14: "Like most juniors I just want to get in and start coding"):
+1. **Make sure they plan, and think it through themselves.** Every developer turn starts with a plan in plain-English comments, not code, even when they push to skip ahead. Don't plan for them.
+2. **Discuss first.** Before giving any template, ask open questions and let them talk it through: "What does this component need to know?", "What could go wrong when it loads?", "What happens the first time vs. the second time?" They should spot the issues and solutions themselves.
+3. **The comment-plan structure** (PROPS / STATE / LOAD / SAVE / EVENTS / PREDICTION) comes *after* that discussion: as a way to write down what they worked out, or as a fallback when they're stuck. If they're stuck on structure, a skeleton with headings and blanks works. Don't hand over the whole format up front.
+4. Keep each review round to the few things that block coding, so planning doesn't drag into many rounds (milestone 6 took four and got frustrating).
 
-Harmless console noise: Firefox rejects Cloudflare's `__cf_bm` cookie on the signed photo URLs.
+**Other habits that work:**
+- The checklist for any state change: (1) what is the state now? (2) what should it be after? (3) which tool makes the new value without mutating (`map` = change one, `filter` = remove, `[...a, x]` = add, copy + swap = reorder)? (4) wrap it in `setForm((prev) => ...)`.
+- Rebuild from memory: e.g. the steps list was built without looking at the ingredient code, plan first. Keep doing this, and point out real evidence of building when it happens (e.g. moveDown), so they can see progress.
+- Walkthroughs of existing code: temporary `console.log`s, a prediction before each run, one piece at a time. Long written tables don't land.
+- Demos need **exact steps with the expected screen at each step**, and name what "wrong" looks like up front. Everyday analogies help (a `Blob` is a sealed parcel with a label; index keys are coats on numbered chairs).
+- They learn well from hints plus "how would you test that" (hovering links, Slow 3G throttling).
 
-**Scope decision (developer, 2026-10-30):** no `aria-label`s on the list-row inputs. Screen-reader support isn't a need for these stakeholders, so don't push it again. (The main form fields keep their visible `<label>`s.)
+**What they know well now** (build on it, don't re-teach): the three ways RLS says no (`42501` on insert; no error + `[]` on update/delete; `42501` permission denied from a column grant), `23505` unique violations, "prove the row exists before testing that it's blocked", the `useEffect` fetch pattern with `ignore` and full deps arrays, `null` vs `[]` state, code after `.then` running before the response, one-variable checks for TypeScript narrowing, `.maybeSingle()`, upsert with `onConflict`, `( )` vs `{ }` arrow bodies, template literals in JSX, the `0 &&` trap, and `File`/`Blob` basics from the photo walkthrough.
 
-**Edit UX decision (2026-10-30, developer agreed):** a separate edit page, not inline editing. The form mirrors the detail page's layout and order, with labeled real inputs. There's a big obvious Edit button, and Save returns to the recipe page. Warn on leaving with unsaved changes (deferred, see above). The same form serves new and edit. Inline editing was rejected because she'd have to discover it, a stray tap could change a recipe, there's no single Cancel, and a new recipe still needs a form. Small inline fixes could come after launch.
+## Testing by hand
+**Accounts:** two in Supabase, one editor (`0a92e20e…`) and one family (`e73676e7…`).
 
-**The developer's main learning gap (their words, 2026-10-31): recognition vs. building.** "Like a Lego kit: I can name every brick in a built kit, but without the manual I can't build it." They read and explain code fine; the gap is *decomposing a problem into steps* by themselves. Still shaky: `( )` vs `{ }` arrow bodies (taught again 2026-10-31 with five console experiments a–e). How to teach from now on:
-- **Plan before code** on every developer turn: they write the steps as plain-English comments first ("copy the array", "swap", "put it back in the form"), Claude reviews the *plan*, and only then do they code. This is the skill to practice, so don't skip it to save time.
-- **How to run planning (the developer's own words and request, 2026-11-14).** "Like most juniors I just want to get in and start coding." That urge causes friction, but planning first makes the work easier and faster, and they struggle with coding assessments in job interviews today, so this skill is what gets them hired. So:
-  1. **Make sure they plan, and think it through themselves.** Don't let a developer turn start with code, even when they push to skip ahead. Don't plan for them.
-  2. **Discuss first.** Before giving any template, ask open questions and let them talk it through: "What does this component need to know?", "What could go wrong when it loads?", "What happens the first time vs. the second time?" They should spot the issues and solutions themselves.
-  3. **The comment-plan structure** (PROPS / STATE / LOAD / SAVE / EVENTS / PREDICTION) is good, but it comes *after* that discussion: as a way to write down what they worked out, or as a fallback when they're stuck. Don't hand over the whole format to fill in up front.
-  4. Keep each review round to the few things that block coding, so planning doesn't drag into many rounds (milestone 6 took four and got frustrating).
-- Use the repeatable checklist for any state change: (1) what is the state now? (2) what should it be after? (3) which tool makes the new value without mutating (`map` = change one, `filter` = remove, `[...a, x]` = add, copy + swap = reorder)? (4) wrap it in `setForm((prev) => ...)`.
-- Rebuild from memory: e.g. the steps list was built **without looking at the ingredient code**, plan first. Keep doing this.
-- Point out real evidence of building when it happens (e.g. moveDown), so they can see progress.
-
-**Mental model that clicked (2026-10-30):** the form is a *draft* in browser memory; only Save sends it to the database (the developer first thought "Add ingredient" saved something).
-
-**Known loose ends in the milestone 4 pages (not bugs today):** `RecipeDetailPage` doesn't reset `error`/`recipe`/`loadingDone` when `id` changes. That's unreachable for now, because navigation always goes through the list, which unmounts the page. It matters once recipes link to each other. The developer's files still have minor style drift (double-quote imports, a few spaces inside `<h1>`/`<h3>`). The `servings &&` trap is already fixed (`!== null`).
-
-**What the developer knows well now:** the three ways RLS says no (`42501` on insert; no error + `[]` on update/delete; `42501` permission denied from a column grant), `23505` unique violations, and the rule "prove the row exists before testing that it's blocked." From milestone 4: the `useEffect` fetch pattern with `ignore`, `null` vs `[]` state, code after `.then` running before the response, one-variable checks for TypeScript narrowing, `.maybeSingle()`, `( )` vs `{ }` arrow bodies, template literals in JSX, and the `0 &&` trap. They learn well from hints plus "how would you test that" (hovering links, Slow 3G throttling). Demos need **exact steps with the expected screen at each step**: in the key demo they saw the bug but didn't recognize it as one until given a step-by-step table and an everyday analogy (coats on numbered chairs = index keys). Name what "wrong" looks like up front.
-
-**Weak spot the developer flagged (2026-10-30): Storage and `Blob`.** They ran the milestone 5 step 1 Storage RLS tests (all passed) but say they don't fully understand that material yet, *especially Blobs*. Make sure they understand it before building on it:
-- What a `Blob` / `File` is (bytes + a MIME `type`), and why `new Blob(['hi'])` uploaded as `application/octet-stream` while the `contentType` option was ignored.
-- MIME types, and the bucket's `allowed_mime_types` (415) vs. RLS (`new row violates…`), both sent as HTTP 400. Read `error.message`, not the status.
-- Storage as rows in `storage.objects`, so file actions map to insert/select/delete policies. Also why the family can *see* a file but can't *delete* it (each command has its own `using`).
-- Plan: re-teach `Blob` hands-on at the start of step 5 (photo upload), where it becomes concrete: `<input type="file">` gives a `File`, and `canvas.toBlob(cb, 'image/jpeg')` makes the upload. Small console experiments first (`new Blob`, `.type`, `.size`, `await blob.text()`), then the real code. Don't treat step 1 as understood just because the tests passed.
-
-**Console-testing tips:** don't sign out to switch accounts (the built-in email sender allows only a few per hour); keep the editor and family in separate browsers. The console shows only the last result of a multi-line paste, so save each result in a variable and `console.log` them, or run lines one at a time. Firefox won't let you redeclare a `const`, so use new names. Double-check which window you're in (the header shows the name).
+**Console-testing tips:** don't sign out to switch accounts (the built-in email sender allows only a few per hour); keep the editor and family in separate browsers. The console shows only the last result of a multi-line paste, so save each result in a variable and `console.log` them, or run lines one at a time. Firefox won't let you redeclare a `const`, so use new names. Double-check which window you're in (the header shows the name). Harmless noise: Firefox rejects Cloudflare's `__cf_bm` cookie on the signed photo URLs.
 
 ### The magic-link debugging checklist (if sign-in bounces back to /login)
 If clicking the link lands back on `/login`, check in order:
@@ -153,6 +150,5 @@ If clicking the link lands back on `/login`, check in order:
 2. After clicking, look at the address bar or F12 console for error params like `#error=access_denied&error_code=otp_expired`. Links are one-use and expire, and email scanners sometimes "click" them first.
 3. (Only if we ever switch to the PKCE flow: did the link open in the **same browser** that requested it? The code verifier lives in that browser's storage. With today's implicit flow, this is not a cause.)
 4. F12 → Application → Local Storage: is there an `sb-…-auth-token` key after clicking?
-Teach this as a debugging exercise: the developer drives, and Claude guides. A one-off failure in 2026-10 was most likely an expired or already-used link (`otp_expired`).
 
-**Accounts:** two in Supabase, one editor (`0a92e20e…`) and one family (`e73676e7…`).
+Teach this as a debugging exercise: the developer drives, and Claude guides.
