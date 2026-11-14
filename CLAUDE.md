@@ -36,7 +36,7 @@ An online family cookbook. The site owner's mother-in-law is the **only editor**
 - `npm run gen:types`: regenerate `src/lib/database.types.ts` after any schema change
 
 ## Structure (built + planned)
-Built so far: `src/lib/*`, `src/auth/*` (incl. RequireEditor), `src/pages/` LoginPage + RecipeListPage (`/`) + RecipeDetailPage (`/recipes/:id`) + RecipeEditPage (`/recipes/new`, `/recipes/:id/edit`), `src/components/` StarRating + ReviewForm + ReviewList + ReactionButtons (all on RecipeDetailPage), and three migrations. Still planned: PopularityPage and RecipeCard. Pages and components fetch inside their own `useEffect` (no custom hooks extracted yet).
+Built so far: `src/lib/*`, `src/auth/*` (incl. RequireEditor), `src/pages/` LoginPage + RecipeListPage (`/`) + RecipeDetailPage (`/recipes/:id`) + RecipeEditPage (`/recipes/new`, `/recipes/:id/edit`) + StatsPage (`/stats`, editor-only), `src/components/` StarRating + ReviewForm + ReviewList + ReactionButtons (all on RecipeDetailPage), and four migrations. Still planned: RecipeCard. Pages and components fetch inside their own `useEffect` (no custom hooks extracted yet).
 ```
 supabase/migrations/*.sql   schema + RLS policies (source of truth for the database)
 src/lib/supabase.ts         Supabase client from VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY
@@ -46,7 +46,7 @@ src/auth/authContext.ts     AuthContext + useAuth() hook + Profile type
 src/auth/AuthProvider.tsx   session + profile state (kept apart from the hook so fast refresh works)
 src/auth/RequireAuth.tsx    layout-route guard: <Route element={<RequireAuth />}> wraps signed-in pages
 src/auth/RequireEditor.tsx  layout-route guard nested inside RequireAuth: non-editors → /
-src/pages/                  LoginPage, RecipeListPage, RecipeDetailPage, RecipeEditPage (built); PopularityPage (planned)
+src/pages/                  LoginPage, RecipeListPage, RecipeDetailPage, RecipeEditPage, StatsPage
 src/components/             StarRating, ReviewForm, ReviewList, ReactionButtons (built); RecipeCard (planned)
 ```
 
@@ -94,7 +94,7 @@ src/components/             StarRating, ReviewForm, ReviewList, ReactionButtons 
 4. ✅ Recipe list + detail (developer wrote both pages; Claude reviewed)
 5. ✅ Editor form (Claude: form + photo upload; developer: ingredient/step list editing)
 6. ✅ Reviews + reactions (developer: StarRating + ReviewForm; Claude: ReviewList + ReactionButtons)
-7. Popularity dashboard (Claude) + sort/filter controls (developer) ← **next**
+7. Statistics page (Claude) + sort controls (developer) ← **in progress** on `feat/milestone-7-popularity`. Decisions (developer, 2026-11-15): the page is called **"Statistics"** (`/stats`, `StatsPage`), because "Popularity" felt tacky. It's **editor-only**: a route inside `RequireEditor`, and a header link only she sees. She sorts it by **clicking column headers** (she likes looking at different stats); that sorting is the developer's part. The `recipe_stats` view itself stays readable by all signed-in users, so "top rated" sorting works on the family's recipe list too; that leaks nothing, because they can already read every review and reaction.
 8. Deploy to Netlify (Claude, guided). **Must handle the Supabase free-tier pause:** the project was paused after ~2 weeks without use (seen 2026-11-11), so a quiet family site would break until someone restores it in the dashboard. Decide on a keep-alive (e.g. a scheduled ping) or the paid plan before launch.
 9. Design pass (developer, decided 2026-11-13): the developer restyles the whole site the way they want, before family members are invited. Until then, keep styling minimal and functional: give new components a class name and a few plain rules in `index.css` so they're easy to restyle, but don't spend time polishing looks.
 
@@ -106,8 +106,15 @@ Later: print/PDF cookbook export, in-app family invites (Edge Function), recipe 
 
 Update the milestone checklist above as milestones are completed.
 
-## Where we left off (2026-11-14)
-**Milestone 6 is done** (tested as editor + family, merged to `main`). **Next: milestone 7**, starting with the `recipe_stats` view (Claude).
+## Where we left off (2026-11-15)
+**Milestone 7 is in progress** on `feat/milestone-7-popularity` (nothing committed yet; commit at the end of the milestone).
+- Done: the `recipe_stats` view (migration `20261115120000`, pushed, types regenerated, numbers hand-checked by the developer including a fan-out case), and `StatsPage` at `/stats` (Claude), browser-tested as editor + family.
+- The view uses `security_invoker = true` and aggregates reviews and reactions in separate subqueries before joining, to avoid join fan-out. Generated view types mark every column nullable, so the page handles `null` everywhere.
+- **Developer's turn, in progress: column-header sorting** in `StatsPage`. Their plan is in comments at the top of the file. STATE and EVENTS are written (`sortColumn: keyof StatsRow`, `isAscending`, `setColumn(header)`), with a temporary `<p>{sortColumn} ▲/▼</p>` line for testing.
+  - **Open bug to start with:** a new column always resets to `isAscending = true`, but the plan says number columns start highest first (descending); only the Recipe column starts A–Z. Ask them to predict what the indicator shows after clicking Reviews.
+  - **Next after that: RENDER.** `rows.toSorted(...)` into a plain `sortedRows` variable (not state), nulls always at the bottom, `localeCompare` for titles, subtraction for numbers; the table maps `sortedRows`. Then test against their written predictions and remove the temporary line.
+  - Style nit to mention once: `if(` → `if (`.
+- Then: wrap up milestone 7 (build + lint, both browsers, `LEARNING.md`, commit, merge).
 
 Open items:
 - The database has test recipes (Pot Roast, Lemon Bars, a deliberately bare Pancakes, plus others from testing the form) and their test photos. Delete them all before real use.
