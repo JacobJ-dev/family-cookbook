@@ -1,0 +1,19 @@
+# Netlify reads this file on every deploy. Settings here override the dashboard.
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  # Build with the same major Node version we use locally (Vite 8 needs 20.19+ or 22.12+).
+  NODE_VERSION = "22"
+
+# Single-page app fallback. Netlify only has real files for "/" (index.html) and
+# the assets, so a refresh on /recipes/abc would be a 404. This serves index.html
+# for any path instead, and React Router then reads the URL and shows the right page.
+# Status 200 (a "rewrite", not a redirect) keeps the address bar unchanged.
+# Netlify checks for a real file first, so /assets/*.js still loads normally.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
