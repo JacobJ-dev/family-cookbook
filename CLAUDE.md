@@ -24,9 +24,10 @@ An online family cookbook. The site owner's mother-in-law is the **only editor**
 - `react-router` (v7) for pages, set up in `src/main.tsx` (`BrowserRouter`) and `src/App.tsx` (`Routes`)
 - Supabase via `@supabase/supabase-js`: Postgres with Row Level Security, magic-link auth (invite-only, public sign-ups off), Storage bucket `recipe-photos`
 - No custom backend. Hosting is planned on Netlify.
-- Data fetching uses small custom hooks over supabase-js, with no extra state library
+- Data fetching calls supabase-js directly inside `useEffect`, with no extra state library
 
 ## Commands
+- First run: `npm install`, then `cp .env.example .env.local` and fill in the Supabase URL + publishable key
 - `npm run dev`: dev server at http://localhost:5173 (also `.claude/launch.json` → "dev")
 - `npm run build`: type-check (`tsc -b`) + production build. Must pass before committing.
 - `npm run lint`: oxlint. Must be clean.
@@ -36,7 +37,7 @@ An online family cookbook. The site owner's mother-in-law is the **only editor**
 - `npm run gen:types`: regenerate `src/lib/database.types.ts` after any schema change
 
 ## Structure (built + planned)
-Built so far: `src/lib/*`, `src/auth/*` (incl. RequireEditor), `src/pages/` LoginPage + RecipeListPage (`/`) + RecipeDetailPage (`/recipes/:id`) + RecipeEditPage (`/recipes/new`, `/recipes/:id/edit`) + StatsPage (`/stats`, editor-only), `src/components/` StarRating + ReviewForm + ReviewList + ReactionButtons (all on RecipeDetailPage), and four migrations. Still planned: RecipeCard. Pages and components fetch inside their own `useEffect` (no custom hooks extracted yet).
+Routes are all in `src/App.tsx`. Pages and components fetch inside their own `useEffect` (no custom hooks extracted yet).
 ```
 supabase/migrations/*.sql   schema + RLS policies (source of truth for the database)
 src/lib/supabase.ts         Supabase client from VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY
@@ -46,8 +47,9 @@ src/auth/authContext.ts     AuthContext + useAuth() hook + Profile type
 src/auth/AuthProvider.tsx   session + profile state (kept apart from the hook so fast refresh works)
 src/auth/RequireAuth.tsx    layout-route guard: <Route element={<RequireAuth />}> wraps signed-in pages
 src/auth/RequireEditor.tsx  layout-route guard nested inside RequireAuth: non-editors → /
-src/pages/                  LoginPage, RecipeListPage, RecipeDetailPage, RecipeEditPage, StatsPage
-src/components/             StarRating, ReviewForm, ReviewList, ReactionButtons (built); RecipeCard (planned)
+src/pages/                  LoginPage, RecipeListPage (/), RecipeDetailPage (/recipes/:id),
+                            RecipeEditPage (/recipes/new, /recipes/:id/edit), StatsPage (/stats, editor-only)
+src/components/             StarRating, ReviewForm, ReviewList, ReactionButtons (all on RecipeDetailPage); RecipeCard (planned)
 ```
 
 ### How the recipe detail page fits together (milestone 6)
@@ -107,7 +109,7 @@ Later: print/PDF cookbook export, in-app family invites (Edge Function), recipe 
 Update the milestone checklist above as milestones are completed.
 
 ## Where we left off (2026-11-17)
-**Milestone 7 is done** and merged into `main`. **Next: milestone 8 (deploy)**, starting with the free-tier pause decision.
+**Milestone 7 is done** and merged into `main`. **Next: milestone 8 (deploy)**, starting with the free-tier pause decision. The developer chose deploy before the design pass (2026-11-17): find the deploy surprises early and style against the live site. Nobody is invited until after the design pass.
 - `recipe_stats` aggregates reviews and reactions in separate subqueries before joining (avoids join fan-out) and uses `security_invoker = true`. Generated view types mark every column nullable, so `StatsPage` handles `null` everywhere; in real data only `avg_rating` can be null (the counts are `coalesce`d to 0).
 - `StatsPage` sorting: `sortedRows` and the header arrow (`displayColumnInfo`) are derived on each render, not state. In the compare function, the null checks return early **before** the direction flip, so unrated recipes stay at the bottom both ways. Don't reorder those lines.
 
