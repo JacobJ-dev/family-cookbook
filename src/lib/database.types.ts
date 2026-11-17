@@ -14,6 +14,21 @@ export type Database = {
   }
   public: {
     Tables: {
+      heartbeat: {
+        Row: {
+          id: number
+          last_ping: string
+        }
+        Insert: {
+          id: number
+          last_ping?: string
+        }
+        Update: {
+          id?: number
+          last_ping?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -205,6 +220,7 @@ export type Database = {
     }
     Functions: {
       is_editor: { Args: never; Returns: boolean }
+      keep_alive: { Args: never; Returns: string }
     }
     Enums: {
       [_ in never]: never

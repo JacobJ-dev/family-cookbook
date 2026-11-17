@@ -92,6 +92,17 @@ What I've practiced building **Family Cookbook**: a real app for a real user (my
 | `typeof` narrowing, so TypeScript knows a value is a string or a number before using it | `sortedRows` | **me**, after researching how `localeCompare` works |
 | Reading lint warnings as bug reports: `no-unused-expressions` flagged a ternary whose result I never saved | `sortedRows` | **me** (see stories) |
 
+### Deployment and operations (milestone 8)
+| Skill | Where in the repo | Who |
+|---|---|---|
+| Deploying a static Vite app to Netlify from GitHub, with production environment variables | Netlify dashboard, `netlify.toml` | **me** (dashboard, env vars, Supabase redirect URLs, live smoke test); Claude wrote `netlify.toml` |
+| **SPA fallback:** a 200 rewrite to `index.html`, so refreshing on `/recipes/abc` reaches React Router instead of a 404 | `netlify.toml` | Claude wrote it; **I tested** it with F5 on the live site |
+| Build-time vs run-time config: `VITE_*` values are baked into the bundle, so changing one means rebuilding | Netlify env vars | Learned from my first deploy, which ran before I'd added them |
+| Working out what a keep-alive must do: reach Postgres itself, not just the website | design discussion | **me**, with guided questions (see stories) |
+| `security definer` as a narrow "vending machine": one fixed action that bypasses RLS, with no input to steer it | `keep_alive()`, migration `20261118120000` | Claude wrote it; **I can explain** why it fails silently without it |
+| Least privilege for a **public** key: `anon` can only press one button that rewrites one timestamp | `grant execute … to anon` | Claude wrote it; I worked out the table design (id + `last_ping`, insert the row first) |
+| A scheduled serverless function calling a database function over REST | `netlify/functions/keep-alive.mts` | Claude wrote it |
+
 ### Professional workflow
 - **Git:** conventional commits (`feat(db): …`, `chore: …`), one commit per milestone, pushed to GitHub
 - **Reading error messages:** used `SQLSTATE 42883` and `At statement: 4` to find a typo
@@ -153,6 +164,9 @@ On the statistics page, recipes nobody has rated have no average, and they shoul
 **"Tell me about a design decision."**
 Reactions (favorite / want to try) have no update policy. Every column is part of the primary key, so "changing" a reaction is really delete + insert. Removing the update path removed an entire class of bugs and attack surface. I also removed a default value on `kind`: a missing value should fail loudly, not silently become a favorite.
 
+**"Tell me about an operational problem you designed around."**
+Supabase's free tier pauses a project after about a week without database activity, and a family recipe site has quiet months. Rather than pay every month, I built a keep-alive. My first idea was that a login would do, but a static site never touches the database, and nothing on a timer can click a magic link. So a scheduled function has to reach Postgres itself. Even then, a plain select as an anonymous user returns `[]`, which looks the same whether the query ran or not. So the robot calls a single `security definer` function that writes a timestamp and returns it: the result proves the write happened. The publishable key is public, so I kept that permission as small as possible. The worst anyone could do with it is rewrite one timestamp.
+
 **"How do you use AI tools?"**
 I treat Claude Code like a pair programmer. We plan first, I keep a `CLAUDE.md` with the project's rules, I write the parts I need to learn, and I review and verify everything it writes against the real system. I can explain every line in this repo.
 
@@ -172,7 +186,6 @@ It has a real user with a real need: a family recipe collection with ratings, so
 ## 4. Coming up (skills each milestone will add)
 | Milestone | New skills |
 |---|---|
-| 8. Deploy | Hosting, environment variables in production, redirect URLs, sharing a live link |
 | 9. Design pass | Designing my own look: CSS layout, theming with CSS variables, responsive design for phones |
 | Later | Automated tests (Vitest), print CSS / PDF export, serverless functions |
 
@@ -188,3 +201,4 @@ It has a real user with a real need: a family recipe collection with ratings, so
 | 2026-11-13 | 5: editor form | Wrote the ingredient and steps list editor (add, edit, remove, reorder, shared functions, dropping blank rows), fixed my inverted-filter and copy-paste bugs, ran the Storage RLS tests and the full browser test run, and traced the photo upload with `console.log`s | Plan in plain English before coding; a filter keeps what matches; order steps so a failure leaves a safe state; pixels ≠ bytes (a PNG became a *bigger* JPEG) |
 | 2026-11-14 | 6: reviews + reactions | Planned and wrote `StarRating` and `ReviewForm` (load with `maybeSingle`, upsert on save, status union, form submit), fixed the deps-array, stuck-loading and label bugs from review, tested as editor and family, and checked my upsert prediction in the database | Plan first; every outside value an effect reads goes in its deps; set `type="button"` on buttons inside forms |
 | 2026-11-17 | 7: statistics + sorting | Hand-checked the `recipe_stats` view's numbers; planned and wrote the column sorting (sort state, click handler, compare function with nulls last in both directions, header arrows) and tested every click against my predictions | Plan first, then compare the code with the plan; derive values instead of storing them; a lint warning can be a real bug |
+| 2026-11-18 | 8: deploy | Chose a keep-alive over the paid plan and reasoned out what it must do; set up the Netlify site, env vars and Supabase redirect URLs; smoke-tested sign-in and refresh as editor and family. Claude wrote `netlify.toml`, the migration and the scheduled function | Netlify only sees what's pushed; `VITE_*` values are fixed at build time; RLS filters inside Postgres, so a blocked select still runs |

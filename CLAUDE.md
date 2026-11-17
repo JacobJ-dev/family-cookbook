@@ -23,7 +23,7 @@ An online family cookbook. The site owner's mother-in-law is the **only editor**
 - React 19 + TypeScript + Vite 8, oxlint for linting
 - `react-router` (v7) for pages, set up in `src/main.tsx` (`BrowserRouter`) and `src/App.tsx` (`Routes`)
 - Supabase via `@supabase/supabase-js`: Postgres with Row Level Security, magic-link auth (invite-only, public sign-ups off), Storage bucket `recipe-photos`
-- No custom backend. Hosting is planned on Netlify.
+- Hosted on Netlify (`netlify.toml`). The only server code is the keep-alive scheduled function; there's no other backend.
 - Data fetching calls supabase-js directly inside `useEffect`, with no extra state library
 
 ## Commands
@@ -35,6 +35,7 @@ An online family cookbook. The site owner's mother-in-law is the **only editor**
 - No test runner yet. RLS is verified by hand: sign in, then run queries with the dev-only `window.supabase` in the F12 console.
 - `npx supabase db push`: apply new files in `supabase/migrations/` to the linked project (the developer has run `login` + `link`). The Supabase CLI is a devDependency, so `npx supabase` and `gen:types` use the project's pinned copy; no global install needed.
 - `npm run gen:types`: regenerate `src/lib/database.types.ts` after any schema change
+- **Deploy = push to `main`.** Netlify builds from GitHub only, so unpushed commits don't exist for it. `VITE_*` values are baked in at build time from Netlify's environment variables, so changing one needs a new build.
 
 ## Structure (built + planned)
 Routes are all in `src/App.tsx`. Pages and components fetch inside their own `useEffect` (no custom hooks extracted yet).
@@ -50,6 +51,8 @@ src/auth/RequireEditor.tsx  layout-route guard nested inside RequireAuth: non-ed
 src/pages/                  LoginPage, RecipeListPage (/), RecipeDetailPage (/recipes/:id),
                             RecipeEditPage (/recipes/new, /recipes/:id/edit), StatsPage (/stats, editor-only)
 src/components/             StarRating, ReviewForm, ReviewList, ReactionButtons (all on RecipeDetailPage); RecipeCard (planned)
+netlify.toml                build settings, Node 22, SPA fallback (/* → /index.html, status 200)
+netlify/functions/keep-alive.mts  daily scheduled function that calls keep_alive() (type-checked via tsconfig.node.json)
 ```
 
 ### How the recipe detail page fits together (milestone 6)
@@ -73,6 +76,7 @@ src/components/             StarRating, ReviewForm, ReviewList, ReactionButtons 
 - `reactions`: user_id, recipe_id, kind (`favorite` | `want_to_try`). PK is all three. No update policy: the app only inserts (click on) and deletes (click off).
 - Storage bucket `recipe-photos` (migration `20261030120000`): **private** (decided 2026-10-30, because photos are family-only), so the app shows photos through short-lived signed URLs. It accepts only `image/jpeg` up to 5 MB, because the app resizes every photo to a ~1600px JPEG in the browser (canvas) before uploading. That also strips GPS/EXIF data, and HEIC that the browser can't decode gets a friendly error. Paths look like `<recipeId>/<random>.jpg`. Policies: signed-in users read; the editor inserts and deletes; there's no update policy (a replaced photo is a new file, and the old one is deleted).
 - View `recipe_stats` (migration `20261115120000`): avg rating plus review/favorite/want-to-try counts per recipe. `security_invoker = true`, so the caller's RLS applies; readable by all signed-in users.
+- Keep-alive (migration `20261118120000`): table `heartbeat` (one row, `check (id = 1)`, RLS on with **no policies**) and `keep_alive()`, a `security definer` function that sets `last_ping = now()` and returns it. `anon` may execute it; it's the only thing the publishable key can do without signing in. The app never reads this table.
 
 ### Database-side mechanics (in the migrations, easy to miss from the frontend)
 - Trigger `on_auth_user_created` → `handle_new_user()` inserts the `profiles` row on first sign-in (display_name from invite metadata, else the email prefix). There is no insert policy on `profiles`.
@@ -97,7 +101,9 @@ src/components/             StarRating, ReviewForm, ReviewList, ReactionButtons 
 5. ✅ Editor form (Claude: form + photo upload; developer: ingredient/step list editing)
 6. ✅ Reviews + reactions (developer: StarRating + ReviewForm; Claude: ReviewList + ReactionButtons)
 7. ✅ Statistics page (Claude: `recipe_stats` view + `StatsPage`; developer: column-header sorting with nulls last in both directions, and header arrows). Decisions (developer, 2026-11-15): the page is called **"Statistics"** (`/stats`, `StatsPage`), because "Popularity" felt tacky. It's **editor-only**: a route inside `RequireEditor`, and a header link only she sees. She sorts it by **clicking column headers** (she likes looking at different stats); that sorting is the developer's part. The `recipe_stats` view itself stays readable by all signed-in users, so "top rated" sorting works on the family's recipe list too; that leaks nothing, because they can already read every review and reaction.
-8. Deploy to Netlify (Claude, guided). **Must handle the Supabase free-tier pause:** the project was paused after ~2 weeks without use (seen 2026-11-11), so a quiet family site would break until someone restores it in the dashboard. Decide on a keep-alive (e.g. a scheduled ping) or the paid plan before launch.
+   - `recipe_stats` aggregates reviews and reactions in separate subqueries before joining (avoids join fan-out). Generated view types mark every column nullable, so `StatsPage` handles `null` everywhere; in real data only `avg_rating` can be null (the counts are `coalesce`d to 0).
+   - `StatsPage` sorting: `sortedRows` and the header arrow (`displayColumnInfo`) are derived on each render, not state. In the compare function, the null checks return early **before** the direction flip, so unrated recipes stay at the bottom both ways. Don't reorder those lines.
+8. ✅ Deploy to Netlify (2026-11-18; Claude wrote it, developer did the dashboards and the smoke test). The live site's URL is in Supabase's Redirect URLs next to localhost. **Free-tier pause:** the developer chose a free keep-alive over the paid plan. Supabase pauses free projects after ~7 days without "user database activity" (a site visit or login can't count: a static site never reaches Postgres, and a robot can't click a magic link), so a Netlify scheduled function calls `keep_alive()` daily. Supabase emails a warning ~1 week before pausing, and a paused project can be restored for a year.
 9. Design pass (developer, decided 2026-11-13): the developer restyles the whole site the way they want, before family members are invited. Until then, keep styling minimal and functional: give new components a class name and a few plain rules in `index.css` so they're easy to restyle, but don't spend time polishing looks.
 
 **Deferred until after launch** (from milestone 5):
@@ -108,12 +114,11 @@ Later: print/PDF cookbook export, in-app family invites (Edge Function), recipe 
 
 Update the milestone checklist above as milestones are completed.
 
-## Where we left off (2026-11-17)
-**Milestone 7 is done** and merged into `main`. **Next: milestone 8 (deploy)**, starting with the free-tier pause decision. The developer chose deploy before the design pass (2026-11-17): find the deploy surprises early and style against the live site. Nobody is invited until after the design pass.
-- `recipe_stats` aggregates reviews and reactions in separate subqueries before joining (avoids join fan-out) and uses `security_invoker = true`. Generated view types mark every column nullable, so `StatsPage` handles `null` everywhere; in real data only `avg_rating` can be null (the counts are `coalesce`d to 0).
-- `StatsPage` sorting: `sortedRows` and the header arrow (`displayColumnInfo`) are derived on each render, not state. In the compare function, the null checks return early **before** the direction flip, so unrated recipes stay at the bottom both ways. Don't reorder those lines.
+## Where we left off (2026-11-18)
+**Milestone 8 is done**: the site is live on Netlify, and sign-in and refresh-on-a-recipe both work there (editor and family accounts). **Next: milestone 9 (design pass, the developer's)**, styling against the live site. Nobody is invited until after the design pass.
 
 Open items:
+- Confirm the keep-alive's first scheduled run in Netlify → Logs → Functions (it runs at midnight UTC; a good run logs `keep-alive: last_ping = …`). If it ever fails, the log shows the HTTP status.
 - `StatsPage` style notes for the developer (not whitespace): `): string{` and `){` need a space; `""` → `''`.
 - The database has test recipes (Pot Roast, Lemon Bars, a deliberately bare Pancakes, plus others from testing the form) and their test photos. Delete them all before real use.
 - The developer's call: "Review Saved!" stays on screen after the stars or comment change again. If `profile` were ever null, ReviewForm would sit on "Loading…" (unreachable today, because the guards wait for the profile).
@@ -152,7 +157,7 @@ History behind these rules (what failed, what worked, and when) is in `TEACHING-
 
 ### The magic-link debugging checklist (if sign-in bounces back to /login)
 If clicking the link lands back on `/login`, check in order:
-1. Hover or copy the email link: what's the `redirect_to=` value? It should be `http://localhost:5173`. If the dev server ran on another port (e.g. 5174), Supabase falls back to the Site URL. Add it under Auth → URL Configuration → Redirect URLs if needed.
+1. Hover or copy the email link: what's the `redirect_to=` value? It should be the origin you signed in from (`http://localhost:5173` locally, the `netlify.app` URL live), and that origin must be in Supabase's Redirect URLs. If the dev server ran on another port (e.g. 5174), Supabase falls back to the Site URL. Add it under Auth → URL Configuration → Redirect URLs if needed.
 2. After clicking, look at the address bar or F12 console for error params like `#error=access_denied&error_code=otp_expired`. Links are one-use and expire, and email scanners sometimes "click" them first.
 3. (Only if we ever switch to the PKCE flow: did the link open in the **same browser** that requested it? The code verifier lives in that browser's storage. With today's implicit flow, this is not a cause.)
 4. F12 → Application → Local Storage: is there an `sb-…-auth-token` key after clicking?
