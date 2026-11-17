@@ -36,7 +36,7 @@ An online family cookbook. The site owner's mother-in-law is the **only editor**
 - `npm run gen:types`: regenerate `src/lib/database.types.ts` after any schema change
 
 ## Structure (built + planned)
-Built so far: `src/lib/*`, `src/auth/*` (incl. RequireEditor), `src/pages/` LoginPage + RecipeListPage (`/`) + RecipeDetailPage (`/recipes/:id`) + RecipeEditPage (`/recipes/new`, `/recipes/:id/edit`), `src/components/` StarRating + ReviewForm + ReviewList + ReactionButtons (all on RecipeDetailPage), and three migrations. Still planned: PopularityPage and RecipeCard. Pages and components fetch inside their own `useEffect` (no custom hooks extracted yet).
+Built so far: `src/lib/*`, `src/auth/*` (incl. RequireEditor), `src/pages/` LoginPage + RecipeListPage (`/`) + RecipeDetailPage (`/recipes/:id`) + RecipeEditPage (`/recipes/new`, `/recipes/:id/edit`) + StatsPage (`/stats`, editor-only), `src/components/` StarRating + ReviewForm + ReviewList + ReactionButtons (all on RecipeDetailPage), and four migrations. Still planned: RecipeCard. Pages and components fetch inside their own `useEffect` (no custom hooks extracted yet).
 ```
 supabase/migrations/*.sql   schema + RLS policies (source of truth for the database)
 src/lib/supabase.ts         Supabase client from VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY
@@ -46,7 +46,7 @@ src/auth/authContext.ts     AuthContext + useAuth() hook + Profile type
 src/auth/AuthProvider.tsx   session + profile state (kept apart from the hook so fast refresh works)
 src/auth/RequireAuth.tsx    layout-route guard: <Route element={<RequireAuth />}> wraps signed-in pages
 src/auth/RequireEditor.tsx  layout-route guard nested inside RequireAuth: non-editors → /
-src/pages/                  LoginPage, RecipeListPage, RecipeDetailPage, RecipeEditPage (built); PopularityPage (planned)
+src/pages/                  LoginPage, RecipeListPage, RecipeDetailPage, RecipeEditPage, StatsPage
 src/components/             StarRating, ReviewForm, ReviewList, ReactionButtons (built); RecipeCard (planned)
 ```
 
@@ -70,7 +70,7 @@ src/components/             StarRating, ReviewForm, ReviewList, ReactionButtons 
 - `reviews`: recipe_id, user_id, rating 1–5, comment. Unique per (recipe_id, user_id), so updates use upsert.
 - `reactions`: user_id, recipe_id, kind (`favorite` | `want_to_try`). PK is all three. No update policy: the app only inserts (click on) and deletes (click off).
 - Storage bucket `recipe-photos` (migration `20261030120000`): **private** (decided 2026-10-30, because photos are family-only), so the app shows photos through short-lived signed URLs. It accepts only `image/jpeg` up to 5 MB, because the app resizes every photo to a ~1600px JPEG in the browser (canvas) before uploading. That also strips GPS/EXIF data, and HEIC that the browser can't decode gets a friendly error. Paths look like `<recipeId>/<random>.jpg`. Policies: signed-in users read; the editor inserts and deletes; there's no update policy (a replaced photo is a new file, and the old one is deleted).
-- **Not created yet:** view `recipe_stats` (avg rating, review/favorite/want-to-try counts per recipe, milestone 7).
+- View `recipe_stats` (migration `20261115120000`): avg rating plus review/favorite/want-to-try counts per recipe. `security_invoker = true`, so the caller's RLS applies; readable by all signed-in users.
 
 ### Database-side mechanics (in the migrations, easy to miss from the frontend)
 - Trigger `on_auth_user_created` → `handle_new_user()` inserts the `profiles` row on first sign-in (display_name from invite metadata, else the email prefix). There is no insert policy on `profiles`.
@@ -94,7 +94,7 @@ src/components/             StarRating, ReviewForm, ReviewList, ReactionButtons 
 4. ✅ Recipe list + detail (developer wrote both pages; Claude reviewed)
 5. ✅ Editor form (Claude: form + photo upload; developer: ingredient/step list editing)
 6. ✅ Reviews + reactions (developer: StarRating + ReviewForm; Claude: ReviewList + ReactionButtons)
-7. Popularity dashboard (Claude) + sort/filter controls (developer) ← **next**
+7. ✅ Statistics page (Claude: `recipe_stats` view + `StatsPage`; developer: column-header sorting with nulls last in both directions, and header arrows). Decisions (developer, 2026-11-15): the page is called **"Statistics"** (`/stats`, `StatsPage`), because "Popularity" felt tacky. It's **editor-only**: a route inside `RequireEditor`, and a header link only she sees. She sorts it by **clicking column headers** (she likes looking at different stats); that sorting is the developer's part. The `recipe_stats` view itself stays readable by all signed-in users, so "top rated" sorting works on the family's recipe list too; that leaks nothing, because they can already read every review and reaction.
 8. Deploy to Netlify (Claude, guided). **Must handle the Supabase free-tier pause:** the project was paused after ~2 weeks without use (seen 2026-11-11), so a quiet family site would break until someone restores it in the dashboard. Decide on a keep-alive (e.g. a scheduled ping) or the paid plan before launch.
 9. Design pass (developer, decided 2026-11-13): the developer restyles the whole site the way they want, before family members are invited. Until then, keep styling minimal and functional: give new components a class name and a few plain rules in `index.css` so they're easy to restyle, but don't spend time polishing looks.
 
@@ -106,10 +106,13 @@ Later: print/PDF cookbook export, in-app family invites (Edge Function), recipe 
 
 Update the milestone checklist above as milestones are completed.
 
-## Where we left off (2026-11-14)
-**Milestone 6 is done** (tested as editor + family, merged to `main`). **Next: milestone 7**, starting with the `recipe_stats` view (Claude).
+## Where we left off (2026-11-17)
+**Milestone 7 is done** and committed on `feat/milestone-7-popularity`; it still needs merging into `main`. **Next: milestone 8 (deploy)**, starting with the free-tier pause decision.
+- `recipe_stats` aggregates reviews and reactions in separate subqueries before joining (avoids join fan-out) and uses `security_invoker = true`. Generated view types mark every column nullable, so `StatsPage` handles `null` everywhere; in real data only `avg_rating` can be null (the counts are `coalesce`d to 0).
+- `StatsPage` sorting: `sortedRows` and the header arrow (`displayColumnInfo`) are derived on each render, not state. In the compare function, the null checks return early **before** the direction flip, so unrated recipes stay at the bottom both ways. Don't reorder those lines.
 
 Open items:
+- `StatsPage` style notes for the developer (not whitespace): `): string{` and `){` need a space; `""` → `''`.
 - The database has test recipes (Pot Roast, Lemon Bars, a deliberately bare Pancakes, plus others from testing the form) and their test photos. Delete them all before real use.
 - The developer's call: "Review Saved!" stays on screen after the stars or comment change again. If `profile` were ever null, ReviewForm would sit on "Loading…" (unreachable today, because the guards wait for the profile).
 - `RecipeDetailPage` doesn't reset `error`/`recipe`/`loadingDone` when `id` changes. Unreachable today, because navigation always goes through the list, which unmounts the page; it matters once recipes link to each other.
@@ -135,6 +138,7 @@ History behind these rules (what failed, what worked, and when) is in `TEACHING-
 - Rebuild from memory: e.g. the steps list was built without looking at the ingredient code, plan first. Keep doing this, and point out real evidence of building when it happens (e.g. moveDown), so they can see progress.
 - Walkthroughs of existing code: temporary `console.log`s, a prediction before each run, one piece at a time. Long written tables don't land.
 - Demos need **exact steps with the expected screen at each step**, and name what "wrong" looks like up front. Everyday analogies help (a `Blob` is a sealed parcel with a label; index keys are coats on numbered chairs).
+- **One question at a time when they're lost** (milestone 7 sorting): three questions in one message left them lost for an hour. What got them moving: a concrete number example of the rule, one small question, and, when they were stuck on turning a plan into code, a code skeleton with blanks that map line by line to their plan.
 - They learn well from hints plus "how would you test that" (hovering links, Slow 3G throttling).
 
 **What they know well now** (build on it, don't re-teach): the three ways RLS says no (`42501` on insert; no error + `[]` on update/delete; `42501` permission denied from a column grant), `23505` unique violations, "prove the row exists before testing that it's blocked", the `useEffect` fetch pattern with `ignore` and full deps arrays, `null` vs `[]` state, code after `.then` running before the response, one-variable checks for TypeScript narrowing, `.maybeSingle()`, upsert with `onConflict`, `( )` vs `{ }` arrow bodies, template literals in JSX, the `0 &&` trap, and `File`/`Blob` basics from the photo walkthrough.

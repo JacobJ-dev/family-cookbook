@@ -59,6 +59,13 @@ export type Database = {
             foreignKeyName: "reactions_recipe_id_fkey"
             columns: ["recipe_id"]
             isOneToOne: false
+            referencedRelation: "recipe_stats"
+            referencedColumns: ["recipe_id"]
+          },
+          {
+            foreignKeyName: "reactions_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
             referencedRelation: "recipes"
             referencedColumns: ["id"]
           },
@@ -163,6 +170,13 @@ export type Database = {
             foreignKeyName: "reviews_recipe_id_fkey"
             columns: ["recipe_id"]
             isOneToOne: false
+            referencedRelation: "recipe_stats"
+            referencedColumns: ["recipe_id"]
+          },
+          {
+            foreignKeyName: "reviews_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
             referencedRelation: "recipes"
             referencedColumns: ["id"]
           },
@@ -177,7 +191,17 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      recipe_stats: {
+        Row: {
+          avg_rating: number | null
+          favorite_count: number | null
+          recipe_id: string | null
+          review_count: number | null
+          title: string | null
+          want_to_try_count: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       is_editor: { Args: never; Returns: boolean }

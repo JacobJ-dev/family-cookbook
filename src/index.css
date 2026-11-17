@@ -186,3 +186,29 @@ main {
     background: var(--accent);
     color: var(--bg);
 }
+
+/* Smaller header links next to the site name (e.g. Statistics). */
+.app-header a.header-link {
+    margin-left: 1rem;
+    font-family: var(--sans);
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+/* Statistics page: one row per recipe, numbers right-aligned so they line up. */
+.stats-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.stats-table th,
+.stats-table td {
+    padding: 0.5rem;
+    border-bottom: 1px solid var(--border);
+    text-align: right;
+}
+
+.stats-table th:first-child,
+.stats-table td:first-child {
+    text-align: left;
+}

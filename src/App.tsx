@@ -5,20 +5,23 @@ import LoginPage from './pages/LoginPage';
 import RecipeListPage from './pages/RecipeListPage';
 import RecipeDetailPage from './pages/RecipeDetailPage';
 import RecipeEditPage from './pages/RecipeEditPage';
+import StatsPage from './pages/StatsPage';
 import { useAuth } from './auth/authContext';
-
 
 function App() {
     const { profile, signOut } = useAuth();
 
-    
     return (
         <>
             <header className="app-header">
                 <Link to="/">Family Cookbook</Link>
+                {/* Only the editor sees this link; RequireEditor guards the page itself. */}
+                {profile?.role === 'editor' && (
+                    <Link to="/stats" className="header-link">Statistics</Link>
+                )}
                 {profile && (
                     <span>
-                    Signed in as {profile.display_name} <button onClick={signOut}>Sign Out</button>
+                        Signed in as {profile.display_name} <button onClick={signOut}>Sign Out</button>
                     </span>
                 )}
             </header>
@@ -37,6 +40,7 @@ function App() {
                         <Route element={<RequireEditor />}>
                             <Route path="/recipes/new" element={<RecipeEditPage />} />
                             <Route path="/recipes/:id/edit" element={<RecipeEditPage />} />
+                            <Route path="/stats" element={<StatsPage />} />
                         </Route>
                     </Route>
 
