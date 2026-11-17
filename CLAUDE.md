@@ -107,7 +107,7 @@ Later: print/PDF cookbook export, in-app family invites (Edge Function), recipe 
 Update the milestone checklist above as milestones are completed.
 
 ## Where we left off (2026-11-17)
-**Milestone 7 is done** and committed on `feat/milestone-7-popularity`; it still needs merging into `main`. **Next: milestone 8 (deploy)**, starting with the free-tier pause decision.
+**Milestone 7 is done** and merged into `main`. **Next: milestone 8 (deploy)**, starting with the free-tier pause decision.
 - `recipe_stats` aggregates reviews and reactions in separate subqueries before joining (avoids join fan-out) and uses `security_invoker = true`. Generated view types mark every column nullable, so `StatsPage` handles `null` everywhere; in real data only `avg_rating` can be null (the counts are `coalesce`d to 0).
 - `StatsPage` sorting: `sortedRows` and the header arrow (`displayColumnInfo`) are derived on each render, not state. In the compare function, the null checks return early **before** the direction flip, so unrated recipes stay at the bottom both ways. Don't reorder those lines.
 
