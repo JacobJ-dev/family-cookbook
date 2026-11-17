@@ -15,6 +15,8 @@ What I've practiced building **Family Cookbook**: a real app for a real user (my
 | Unique and **composite primary keys** | `unique (recipe_id, user_id)`, `primary key (user_id, recipe_id, kind)` | **me** |
 | Triggers (auto-set `updated_at`, auto-create a profile on sign-up) | both migrations | Claude wrote it; **I reused the trigger function** |
 | Migrations as version-controlled schema changes | `supabase/migrations/` | **me** (ran `db push`, fixed failures) |
+| A **SQL view** with aggregation (`avg`, `count(*) filter (where …)`, `coalesce`), aggregating each table in its own subquery *before* joining to avoid join fan-out | `recipe_stats` (migration `20261115120000`) | Claude wrote it; **I hand-checked** the numbers, including a fan-out case |
+| `security_invoker = true`, so a view runs with the caller's RLS instead of the view owner's | `recipe_stats` | Claude wrote it; I can explain why it matters |
 
 ### Security: Row Level Security (RLS) and authorization
 | Skill | Notes |
@@ -79,6 +81,17 @@ What I've practiced building **Family Cookbook**: a real app for a real user (my
 | Refreshing a sibling component: the parent holds a counter, one child bumps it (`onSaved`), the other has it in its deps | `RecipeDetailPage` | Claude wrote it; I can explain it |
 | Toggles as insert/delete only (no update), updating the screen only after the database agrees | `ReactionButtons` | Claude wrote it, on top of my no-update-policy design from milestone 2 |
 
+### Frontend: the Statistics page and column sorting (milestone 7)
+| Skill | Where in the repo | Who |
+|---|---|---|
+| An editor-only page: a route inside `RequireEditor`, and a header link only she sees | `StatsPage`, `App.tsx` | Claude wrote it |
+| Sort state as a column + direction, with a click handler: same column flips, a new column picks a sensible start (numbers highest first, titles A–Z) | `setColumn` | **me**, from my own plan. I caught that a new column always reset to ascending by comparing the code with my plan |
+| **Compare functions** for `toSorted`: negative = `a` first, positive = `b` first, 0 = equal; `localeCompare` for text, subtraction for numbers | `sortedRows` | **me**. Claude explained the rule with examples and gave a skeleton with blanks for the null checks; I worked out the null table and wrote the rest |
+| Keeping rows with no rating at the bottom in **both** directions: the null checks return early, *before* the direction flip | `sortedRows` | **me**. I predicted that flipping the whole result would move them to the top, then designed around it |
+| **Derived values instead of state:** the sorted list and the header arrow are worked out on each render from `rows`, `sortColumn` and `isAscending`, so nothing has to be kept in sync | `sortedRows`, `displayColumnInfo` | **me**. I nearly used five booleans for the arrows, then saw `sortColumn` already held the answer |
+| `typeof` narrowing, so TypeScript knows a value is a string or a number before using it | `sortedRows` | **me**, after researching how `localeCompare` works |
+| Reading lint warnings as bug reports: `no-unused-expressions` flagged a ternary whose result I never saved | `sortedRows` | **me** (see stories) |
+
 ### Professional workflow
 - **Git:** conventional commits (`feat(db): …`, `chore: …`), one commit per milestone, pushed to GitHub
 - **Reading error messages:** used `SQLSTATE 42883` and `At statement: 4` to find a typo
@@ -131,6 +144,12 @@ When I built the star rating, I gave each star button `type="button"`. A week la
 **"Tell me about a bug caught before it shipped."**
 My review form's `useEffect` had an empty dependency array, so it loaded the review only once. If the page ever switched recipes without unmounting (planned, once recipes link to each other), the form would keep the old recipe's stars and comment, and Save would write them onto the new recipe. The fix was listing every outside value the effect reads (`[recipeId, profile?.id]`). Review also caught that the form stayed on "Loading…" forever for anyone who hadn't reviewed yet, because I only set `idle` inside `if (data)`, and that the `<label>` around the stars made a click on the word "Rating" set 1 star.
 
+**"Tell me about a bug the linter caught."**
+To reverse the sort, I wrote `isAscending ? compareValue : -compareValue;` on its own line, then returned `compareValue`. The ternary worked out the flipped value and threw it away, like doing a sum on a calculator and walking off without writing it down, so the sort could never reverse. It compiled fine; oxlint's `no-unused-expressions` warning pointed straight at the line. The fix was to assign it (`compareValue = …`). Now I read lint warnings as possible bugs, not just style.
+
+**"Tell me about a sorting edge case."**
+On the statistics page, recipes nobody has rated have no average, and they should sit at the bottom whichever way she sorts. Before writing code, I predicted that the obvious approach (sort, then negate the whole result for descending) would flip the unrated recipes to the *top*. So the compare function handles them first and returns early, and only real values reach the direction flip. I tested both directions to confirm it.
+
 **"Tell me about a design decision."**
 Reactions (favorite / want to try) have no update policy. Every column is part of the primary key, so "changing" a reaction is really delete + insert. Removing the update path removed an entire class of bugs and attack surface. I also removed a default value on `kind`: a missing value should fail loudly, not silently become a favorite.
 
@@ -153,7 +172,6 @@ It has a real user with a real need: a family recipe collection with ratings, so
 ## 4. Coming up (skills each milestone will add)
 | Milestone | New skills |
 |---|---|
-| 7. Popularity dashboard | SQL views and aggregation (`avg`, `count`, `group by`) |
 | 8. Deploy | Hosting, environment variables in production, redirect URLs, sharing a live link |
 | 9. Design pass | Designing my own look: CSS layout, theming with CSS variables, responsive design for phones |
 | Later | Automated tests (Vitest), print CSS / PDF export, serverless functions |
@@ -169,3 +187,4 @@ It has a real user with a real need: a family recipe collection with ratings, so
 | 2026-10-28 | 4: list + detail | Wrote `RecipeListPage` and `RecipeDetailPage` (fetching, loading / error / not-found states, `useParams`, list keys) and ran the browser tests. Fixed the bugs Claude found in review: link quotes, `.then` timing, narrowing, the `0` trap | Code after `.then` runs before the response; a passing build doesn't mean the output is right |
 | 2026-11-13 | 5: editor form | Wrote the ingredient and steps list editor (add, edit, remove, reorder, shared functions, dropping blank rows), fixed my inverted-filter and copy-paste bugs, ran the Storage RLS tests and the full browser test run, and traced the photo upload with `console.log`s | Plan in plain English before coding; a filter keeps what matches; order steps so a failure leaves a safe state; pixels ≠ bytes (a PNG became a *bigger* JPEG) |
 | 2026-11-14 | 6: reviews + reactions | Planned and wrote `StarRating` and `ReviewForm` (load with `maybeSingle`, upsert on save, status union, form submit), fixed the deps-array, stuck-loading and label bugs from review, tested as editor and family, and checked my upsert prediction in the database | Plan first; every outside value an effect reads goes in its deps; set `type="button"` on buttons inside forms |
+| 2026-11-17 | 7: statistics + sorting | Hand-checked the `recipe_stats` view's numbers; planned and wrote the column sorting (sort state, click handler, compare function with nulls last in both directions, header arrows) and tested every click against my predictions | Plan first, then compare the code with the plan; derive values instead of storing them; a lint warning can be a real bug |

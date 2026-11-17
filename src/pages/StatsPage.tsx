@@ -3,24 +3,6 @@ import { Link } from 'react-router';
 import type { Tables } from '../lib/database.types';
 import { supabase } from '../lib/supabase';
 
-// STATE: sort column (starts as Recipe title) and direction (starts A–Z / ascending).
-//        rows stays exactly as loaded; sorting never changes it.
-// EVENTS: When she clicks a header:
-//   - same column as now → flip the direction
-//   - different column → set the column; numbers start highest first, Recipe starts A–Z
-// RENDER: Make a sorted copy with rows.toSorted(...) and keep it in a plain variable
-//         (sortedRows), not state, so no setRows and no render loop.
-//   - unrated (null average) always goes to the bottom, whatever the direction
-//   - numbers: compare with subtraction (b - a for highest first)
-//   - titles: compare with localeCompare
-//   The table's .map uses sortedRows instead of rows.
-// PREDICTIONS: Favourites clicked → most favourites (Pot Roast) at the top; ties keep A–Z order.
-//   Favourites again → order flips, Pot Roast at the bottom.
-//   Reviews clicked → most reviews (Pot Roast) at the top.
-
-// One row of the recipe_stats view. The generated type marks every column
-// as nullable, because Postgres doesn't track which view columns can't be
-// null. So the table below still has to handle null for each one.
 type StatsRow = Tables<'recipe_stats'>;
 
 export default function StatsPage() {
@@ -50,35 +32,70 @@ export default function StatsPage() {
     }, []);
 
     function setColumn(header: keyof StatsRow) {
-        if(sortColumn === header) {
+        if (sortColumn === header) {
             setIsAscending((prev) => !prev);
             return;
         }
         setSortColumn(header);
-        setIsAscending(true);
+        if (header === 'title') {
+            setIsAscending(true);
+            return;
+        }
+
+        setIsAscending(false);
+    }
+
+    function displayColumnInfo(header: keyof StatsRow): string{
+        if (sortColumn === header) {
+            return isAscending ? '▲' : '▼';
+        }
+        return "";
     }
 
     if (error) return <p>Error loading stats: {error}</p>;
     if (rows === null) return <p>Loading...</p>;
 
+    const sortedRows = rows.toSorted((a, b) => {
+        const aValue = a[sortColumn];
+        const bValue = b[sortColumn];
+
+        // Unrated rows return early, so the direction flip never moves them to the top.
+        if (aValue === null && bValue !== null) return 1;
+        if (aValue !== null && bValue === null) return -1;
+        if (aValue === null && bValue === null) return 0;
+
+        let compareValue = 0;
+
+        if (typeof aValue === 'string' && typeof bValue === 'string'){
+            compareValue = aValue.localeCompare(bValue);
+        }
+
+        if (typeof aValue === 'number' && typeof bValue === 'number'){
+            compareValue = aValue - bValue;
+        }
+
+        compareValue = isAscending ? compareValue : -compareValue;
+
+        return compareValue;
+    });
+
     return (
         <div className="container">
             <h1>Statistics</h1>
             {rows.length === 0 && <p>No recipes yet.</p>}
-            <p>{sortColumn} {isAscending ? '▲' : '▼'}</p>
 
             <table className="stats-table">
                 <thead>
                     <tr>
-                        <th><button type="button" onClick={() => setColumn('title')}>Recipe</button></th>
-                        <th><button type="button" onClick={() => setColumn('avg_rating')}>Average rating</button></th>
-                        <th><button type="button" onClick={() => setColumn('review_count')}>Reviews</button></th>
-                        <th><button type="button" onClick={() => setColumn('favorite_count')}>Favourites</button></th>
-                        <th><button type="button" onClick={() => setColumn('want_to_try_count')}>Want to try</button></th>
+                        <th><button type="button" onClick={() => setColumn('title')}>Recipe {displayColumnInfo('title')}</button></th>
+                        <th><button type="button" onClick={() => setColumn('avg_rating')}>Average rating {displayColumnInfo('avg_rating')}</button></th>
+                        <th><button type="button" onClick={() => setColumn('review_count')}>Reviews {displayColumnInfo('review_count')}</button></th>
+                        <th><button type="button" onClick={() => setColumn('favorite_count')}>Favourites {displayColumnInfo('favorite_count')}</button></th>
+                        <th><button type="button" onClick={() => setColumn('want_to_try_count')}>Want to try {displayColumnInfo('want_to_try_count')}</button></th>
                     </tr>
                 </thead>
                 <tbody>
-                    {rows.map((row) => (
+                    {sortedRows.map((row) => (
                         <tr key={row.recipe_id}>
                             <td><Link to={`/recipes/${row.recipe_id}`}>{row.title}</Link></td>
                             {/* No reviews yet: show a dash, not 0, because nobody rated it 0. */}
